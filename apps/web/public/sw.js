@@ -1,4 +1,4 @@
-const CACHE = 'fireslot-v2'
+const CACHE = 'fireslot-v3'
 const STATIC = ['/', '/tournaments', '/challenges', '/leaderboard']
 
 self.addEventListener('install', e => {
@@ -19,13 +19,19 @@ self.addEventListener('fetch', e => {
   const url = new URL(e.request.url)
   const req = e.request
 
+  // Leave cross-origin requests untouched (API, OAuth, CDN).
+  if (url.origin !== self.location.origin) {
+    e.respondWith(fetch(req))
+    return
+  }
+
   // Never intercept Next internals.
   if (url.pathname.startsWith('/_next/') || url.pathname.startsWith('/__nextjs')) {
     return
   }
 
   // API calls: network first, no cache
-  if (url.pathname.startsWith('/api') || url.hostname.includes('your-api-domain')) {
+  if (url.pathname.startsWith('/api')) {
     e.respondWith(fetch(e.request).catch(() => new Response('{"error":"offline"}', {
       headers: { 'Content-Type': 'application/json' }
     })))
@@ -47,7 +53,7 @@ self.addEventListener('fetch', e => {
     return
   }
 
-  // Static/pages: cache first, fallback network
+  // Static assets/pages: cache first, fallback network
   e.respondWith(
     caches.match(req).then(cached => {
       if (cached) return cached
@@ -56,7 +62,7 @@ self.addEventListener('fetch', e => {
           caches.open(CACHE).then(c => c.put(req, res.clone()))
         }
         return res
-      }).catch(() => caches.match('/'))  // fallback to home on offline
+      }).catch(() => req.mode === 'navigate' ? caches.match('/') : Response.error())
     })
   )
 })

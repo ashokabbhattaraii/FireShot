@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { UpdateCheckResult, checkForUpdates, downloadAndInstallAPK } from "@/lib/update-checker";
 import { useToast } from "@/lib/toast";
 
@@ -27,6 +27,11 @@ export function useAppUpdates(): UseAppUpdatesReturn {
   const [dismissed, setDismissed] = useState(false);
   const [isInstalling, setIsInstalling] = useState(false);
   const { success, error: showError } = useToast();
+  const dismissedRef = useRef(false);
+
+  useEffect(() => {
+    dismissedRef.current = dismissed;
+  }, [dismissed]);
 
   const checkUpdates = useCallback(async () => {
     try {
@@ -35,7 +40,7 @@ export function useAppUpdates(): UseAppUpdatesReturn {
       const result = await checkForUpdates();
       setUpdateResult(result);
 
-      if (result.updateAvailable && !dismissed) {
+      if (result.updateAvailable && !dismissedRef.current) {
         success(`Update available: ${result.latestVersion}`);
       }
     } catch (err) {
@@ -45,7 +50,7 @@ export function useAppUpdates(): UseAppUpdatesReturn {
     } finally {
       setIsChecking(false);
     }
-  }, [success, showError, dismissed]);
+  }, [success, showError]);
 
   const installUpdate = useCallback(async () => {
     if (!updateResult?.downloadUrl) {
@@ -73,13 +78,13 @@ export function useAppUpdates(): UseAppUpdatesReturn {
   // Check for updates on mount and set up periodic checks
   useEffect(() => {
     // Initial check
-    checkUpdates();
+    void checkUpdates();
 
     // Periodic check every 6 hours
     const intervalId = setInterval(checkUpdates, 6 * 60 * 60 * 1000);
 
     return () => clearInterval(intervalId);
-  }, [checkUpdates]);
+  }, []);
 
   return {
     updateAvailable: updateResult?.updateAvailable && !dismissed ? true : false,

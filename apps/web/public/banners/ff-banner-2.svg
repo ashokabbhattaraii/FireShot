@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="400" viewBox="0 0 1200 400" role="img" aria-label="Free daily banner">
+  <defs>
+    <linearGradient id="g" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#061633"/>
+      <stop offset="0.55" stop-color="#073b4c"/>
+      <stop offset="1" stop-color="#4caf50"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="82%" cy="40%" r="55%">
+      <stop offset="0" stop-color="#8dffad" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#8dffad" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="400" fill="url(#g)"/>
+  <rect width="1200" height="400" fill="url(#glow)"/>
+  <circle cx="930" cy="190" r="128" fill="#fff" opacity="0.08"/>
+  <circle cx="930" cy="190" r="82" fill="#000" opacity="0.12"/>
+  <text x="76" y="190" fill="#fff" font-family="Arial, Helvetica, sans-serif" font-size="76" font-weight="800" letter-spacing="3">FREE DAILY</text>
+  <text x="80" y="242" fill="#caffd4" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700">PLAY EVERY 24 HOURS</text>
+</svg>

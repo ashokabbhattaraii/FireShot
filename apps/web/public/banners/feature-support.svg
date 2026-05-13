@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="400" viewBox="0 0 1200 400" role="img" aria-label="Support banner">
+  <defs>
+    <linearGradient id="g" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#13051f"/>
+      <stop offset="0.55" stop-color="#35125d"/>
+      <stop offset="1" stop-color="#7c2bd9"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="400" fill="url(#g)"/>
+  <path d="M890 110c78 0 142 50 142 112 0 62-64 112-142 112-20 0-38-3-55-9l-72 28 26-58c-26-20-42-45-42-73 0-62 64-112 143-112z" fill="#fff" opacity="0.16"/>
+  <circle cx="838" cy="222" r="12" fill="#fff" opacity="0.8"/>
+  <circle cx="890" cy="222" r="12" fill="#fff" opacity="0.8"/>
+  <circle cx="942" cy="222" r="12" fill="#fff" opacity="0.8"/>
+  <text x="76" y="190" fill="#fff" font-family="Arial, Helvetica, sans-serif" font-size="76" font-weight="800">24/7 SUPPORT</text>
+  <text x="80" y="242" fill="#eadbff" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700">HELP WHEN YOU NEED IT</text>
+</svg>

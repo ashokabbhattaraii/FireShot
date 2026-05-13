@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="400" viewBox="0 0 1200 400" role="img" aria-label="Clash Squad banner">
+  <defs>
+    <linearGradient id="g" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#04142f"/>
+      <stop offset="0.5" stop-color="#15134f"/>
+      <stop offset="1" stop-color="#8e24aa"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="78%" cy="45%" r="55%">
+      <stop offset="0" stop-color="#ff4df3" stop-opacity="0.42"/>
+      <stop offset="1" stop-color="#ff4df3" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="400" fill="url(#g)"/>
+  <rect width="1200" height="400" fill="url(#glow)"/>
+  <path d="M820 92l78 78 78-78 45 45-78 78 78 78-45 45-78-78-78 78-45-45 78-78-78-78z" fill="#fff" opacity="0.16"/>
+  <text x="76" y="190" fill="#fff" font-family="Arial, Helvetica, sans-serif" font-size="76" font-weight="800">CLASH SQUAD</text>
+  <text x="80" y="242" fill="#f1d0ff" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700">REAL MONEY CHALLENGES</text>
+</svg>

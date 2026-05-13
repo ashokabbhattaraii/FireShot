@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="400" viewBox="0 0 1200 400" role="img" aria-label="Fast withdrawals banner">
+  <defs>
+    <linearGradient id="g" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#022022"/>
+      <stop offset="0.5" stop-color="#06444b"/>
+      <stop offset="1" stop-color="#09a3a3"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="400" fill="url(#g)"/>
+  <rect x="790" y="105" width="230" height="150" rx="22" fill="#fff" opacity="0.16"/>
+  <rect x="830" y="145" width="260" height="150" rx="22" fill="#020f12" opacity="0.58"/>
+  <circle cx="1036" cy="220" r="28" fill="#28f0c7" opacity="0.75"/>
+  <text x="76" y="190" fill="#fff" font-family="Arial, Helvetica, sans-serif" font-size="72" font-weight="800">FAST WITHDRAWALS</text>
+  <text x="80" y="242" fill="#c8fffb" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700">WALLET READY</text>
+</svg>

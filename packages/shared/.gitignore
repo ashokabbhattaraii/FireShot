@@ -1,0 +1,2 @@
+# Keep dist in git for deployment
+!dist/

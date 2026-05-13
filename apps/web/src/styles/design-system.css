@@ -1,0 +1,165 @@
+/* ── TOKENS ── */
+:root {
+  --fs-red:        #E53935;
+  --fs-red-dark:   #B71C1C;
+  --fs-red-glow:   rgba(229,57,53,0.18);
+  --fs-gold:       #FFD700;
+  --fs-gold-dim:   rgba(255,215,0,0.15);
+
+  --fs-bg:         #0B0B14;
+  --fs-surface-1:  #111126;
+  --fs-surface-2:  #16162A;
+  --fs-surface-3:  #1E1E38;
+  --fs-border:     rgba(255,255,255,0.07);
+  --fs-border-md:  rgba(255,255,255,0.12);
+
+  --fs-text-1:     #FFFFFF;
+  --fs-text-2:     rgba(255,255,255,0.70);
+  --fs-text-3:     rgba(255,255,255,0.40);
+
+  --fs-green:      #00C853;
+  --fs-green-dim:  rgba(0,200,83,0.12);
+  --fs-amber:      #FF8F00;
+  --fs-amber-dim:  rgba(255,143,0,0.12);
+
+  --fs-radius-sm:  6px;
+  --fs-radius-md:  10px;
+  --fs-radius-lg:  14px;
+  --fs-radius-xl:  20px;
+
+  --fs-gap:        16px;
+  --fs-gap-sm:     10px;
+  --fs-gap-lg:     24px;
+
+  --fs-safe-top:    env(safe-area-inset-top, 0px);
+  --fs-safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ── BASE ── */
+*, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent }
+html { background: var(--fs-bg); color: var(--fs-text-1); font-family: 'Inter', system-ui, sans-serif; -webkit-text-size-adjust:100%; text-size-adjust:100%; scroll-behavior:smooth }
+body { margin: 0; padding: 0; min-height: 100dvh; overflow-x: hidden; overscroll-behavior:none }
+img  { max-width: 100%; display: block }
+button { cursor: pointer; border: none; background: none; font-family: inherit }
+input, textarea, select { font-family: inherit; font-size: 16px }
+
+/* ── APK FIXES ── */
+* { touch-action:manipulation; -webkit-font-smoothing:antialiased }
+button, a { touch-action:manipulation }
+
+/* ── TYPOGRAPHY ── */
+.fs-h1 { font-size: clamp(20px,5vw,32px); font-weight: 800; letter-spacing:-0.5px; color:var(--fs-text-1) }
+.fs-h2 { font-size: clamp(16px,4vw,22px); font-weight: 700; color:var(--fs-text-1) }
+.fs-h3 { font-size: 15px; font-weight: 600; color:var(--fs-text-1) }
+.fs-body { font-size: 14px; line-height: 1.6; color:var(--fs-text-2) }
+.fs-caption { font-size: 12px; color:var(--fs-text-3) }
+
+/* ── CARDS ── */
+.fs-card {
+  background: var(--fs-surface-1);
+  border: 0.5px solid var(--fs-border);
+  border-radius: var(--fs-radius-lg);
+  overflow: hidden;
+}
+.fs-card-body { padding: var(--fs-gap) }
+
+/* ── BUTTONS ── */
+.fs-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 0 20px; height: 44px; border-radius: var(--fs-radius-md);
+  font-size: 14px; font-weight: 700; letter-spacing: 0.3px;
+  transition: opacity .15s, transform .1s;
+  min-width: 44px;
+}
+.fs-btn:active { transform: scale(0.97); opacity: 0.85 }
+.fs-btn-primary { background: var(--fs-red); color: #fff }
+.fs-btn-primary:hover { background: var(--fs-red-dark) }
+.fs-btn-outline { background: transparent; color: var(--fs-text-1); border: 1px solid var(--fs-border-md) }
+.fs-btn-outline:hover { border-color: var(--fs-red); color: var(--fs-red) }
+.fs-btn-gold { background: var(--fs-gold); color: #000 }
+.fs-btn-sm { height: 34px; padding: 0 14px; font-size: 13px }
+.fs-btn-full { width: 100% }
+.fs-btn-sticky {
+  position: sticky; bottom: 0;
+  margin: 0 -16px;
+  border-radius: 0;
+  padding-bottom: calc(16px + var(--fs-safe-bottom));
+  height: auto; padding-top: 14px;
+}
+
+/* ── BADGES / PILLS ── */
+.fs-badge {
+  display: inline-flex; align-items: center;
+  padding: 3px 8px; border-radius: 4px;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;
+}
+.fs-badge-red    { background: var(--fs-red-glow);   color: var(--fs-red)   }
+.fs-badge-gold   { background: var(--fs-gold-dim);   color: var(--fs-gold)  }
+.fs-badge-green  { background: var(--fs-green-dim);  color: var(--fs-green) }
+.fs-badge-amber  { background: var(--fs-amber-dim);  color: var(--fs-amber) }
+.fs-badge-gray   { background: rgba(255,255,255,.06); color: var(--fs-text-3) }
+
+/* ── INPUTS ── */
+.fs-input {
+  width: 100%; height: 48px; padding: 0 14px;
+  background: var(--fs-surface-2); border: 1px solid var(--fs-border);
+  border-radius: var(--fs-radius-md); color: var(--fs-text-1); font-size: 15px;
+  outline: none; transition: border-color .15s;
+}
+.fs-input:focus { border-color: var(--fs-red) }
+.fs-input::placeholder { color: var(--fs-text-3) }
+.fs-label { display: block; font-size: 12px; font-weight: 600; color: var(--fs-text-3); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px }
+
+/* ── OPTION BUTTONS ── */
+.fs-opt { padding: 10px 14px; border-radius: var(--fs-radius-sm); background: var(--fs-surface-2); border: 1px solid var(--fs-border); color: var(--fs-text-2); font-size: 13px; font-weight: 600; transition: all .15s; min-height: 44px; text-align: center; cursor: pointer }
+.fs-opt.active { border-color: var(--fs-gold); color: var(--fs-gold); background: var(--fs-gold-dim) }
+.fs-opt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px,1fr)); gap: 8px }
+
+/* ── DIVIDER ── */
+.fs-divider { height: 0.5px; background: var(--fs-border); margin: var(--fs-gap) 0 }
+
+/* ── SECTION HEADER ── */
+.fs-section-header { display:flex; align-items:center; justify-content:space-between; margin-bottom: 12px }
+.fs-section-title { font-size: 15px; font-weight: 700; color: var(--fs-text-1) }
+.fs-section-link  { font-size: 13px; color: var(--fs-red); font-weight: 600 }
+
+/* ── SKELETON ── */
+.fs-skeleton { background: linear-gradient(90deg, var(--fs-surface-2) 25%, var(--fs-surface-3) 50%, var(--fs-surface-2) 75%); background-size: 200% 100%; animation: fs-shimmer 1.4s ease infinite; border-radius: var(--fs-radius-sm) }
+@keyframes fs-shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+/* ── TOASTS ── */
+.fs-toast { background: var(--fs-surface-3) !important; color: var(--fs-text-1) !important; border: 0.5px solid var(--fs-border-md) !important; border-radius: var(--fs-radius-md) !important }
+
+/* ── PAGE WRAPPER ── */
+.fs-page { padding: 16px; padding-bottom: calc(80px + var(--fs-safe-bottom)) }
+.fs-page-top { padding-top: calc(var(--fs-safe-top) + 8px) }
+
+/* ── CONTAINER ── */
+.fs-container { width:100%; max-width:480px; margin:0 auto; padding:0 16px }
+
+/* ── GRID HELPERS ── */
+.fs-grid-2 { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--fs-gap-sm) }
+.fs-grid-3 { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px }
+
+/* ── TOUCH TARGETS ── */
+.fs-touch { min-height:44px; min-width:44px }
+
+/* ── HORIZONTAL SCROLL ── */
+.fs-hscroll { display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; scrollbar-width:none }
+.fs-hscroll::-webkit-scrollbar { display:none }
+
+/* ── SAFE AREA HELPERS ── */
+.fs-pb-safe { padding-bottom:calc(80px + var(--fs-safe-bottom)) }
+.fs-pt-safe { padding-top:var(--fs-safe-top) }
+
+/* ── RESPONSIVE ── */
+@media (max-width:360px) {
+  .fs-h1 { font-size:18px }
+  .fs-h2 { font-size:15px }
+  .fs-body { font-size:13px }
+  .fs-btn { height:40px; font-size:13px }
+}
+@media (min-width:768px) {
+  .fs-container { max-width:720px }
+  .fs-grid-2 { grid-template-columns:repeat(3,minmax(0,1fr)) }
+}

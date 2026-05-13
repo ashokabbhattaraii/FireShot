@@ -1,0 +1,15 @@
+{
+  "version": 2,
+  "regions": ["bom1"],
+  "functions": {
+    "api/index.js": {
+      "includeFiles": "{dist/**,public/downloads/**,public/banners/**,../../packages/db/dist/**,../web/public/banners/**}"
+    }
+  },
+  "routes": [
+    { "src": "/banners/(.*)", "dest": "/api/index.js" },
+    { "src": "/downloads/(.*)", "dest": "/api/index.js" },
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "/api/index.js" }
+  ]
+}

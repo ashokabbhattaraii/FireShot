@@ -1,0 +1,15 @@
+node_modules
+.next
+dist
+.turbo
+.env
+.env.local
+uploads/
+*.log
+.DS_Store
+.env.capacitor
+# Capacitor / Android
+apps/web/out/
+apps/web/android/
+apps/web/public/downloads/*.apk
+apps/web/*.keystore

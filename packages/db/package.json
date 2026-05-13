@@ -1,0 +1,28 @@
+{
+  "name": "@fireslot/db",
+  "version": "0.1.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "pnpm run generate && tsc -p tsconfig.json",
+    "generate": "prisma generate",
+    "migrate": "prisma migrate dev",
+    "deploy": "prisma migrate deploy",
+    "studio": "prisma studio",
+    "seed": "ts-node prisma/seed.ts"
+  },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.18.0"
+  },
+  "devDependencies": {
+    "prisma": "^5.18.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.0",
+    "bcryptjs": "^2.4.3",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^20.14.0"
+  }
+}

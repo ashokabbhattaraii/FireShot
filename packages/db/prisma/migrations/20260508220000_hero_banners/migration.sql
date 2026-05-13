@@ -1,0 +1,111 @@
+CREATE TABLE IF NOT EXISTS "HeroBanner" (
+  "id" TEXT NOT NULL,
+  "title" TEXT NOT NULL,
+  "subtitle" TEXT,
+  "imageUrl" TEXT NOT NULL,
+  "mobileImageUrl" TEXT,
+  "ctaText" TEXT,
+  "ctaLink" TEXT,
+  "badgeText" TEXT,
+  "badgeColor" TEXT,
+  "isActive" BOOLEAN NOT NULL DEFAULT true,
+  "sortOrder" INTEGER NOT NULL DEFAULT 0,
+  "autoSlide" BOOLEAN NOT NULL DEFAULT true,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP(3) NOT NULL,
+  CONSTRAINT "HeroBanner_pkey" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "HeroBanner_isActive_sortOrder_idx" ON "HeroBanner"("isActive", "sortOrder");
+
+INSERT INTO "HeroBanner" (
+  "id",
+  "title",
+  "subtitle",
+  "imageUrl",
+  "ctaText",
+  "ctaLink",
+  "badgeText",
+  "badgeColor",
+  "isActive",
+  "sortOrder",
+  "autoSlide",
+  "createdAt",
+  "updatedAt"
+) VALUES
+  (
+    'hero-banner-free-fire',
+    'Free Fire Tournaments',
+    'Win real cash — starting Rs 10 entry',
+    '/banners/ff-banner-1.svg',
+    'Play Now',
+    '/tournaments?category=ff-br',
+    'HOT',
+    '#E53935',
+    true,
+    1,
+    true,
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP
+  ),
+  (
+    'hero-banner-free-daily',
+    'Daily Free Match',
+    '1 free match every 24 hours — Rs 100 prize pool',
+    '/banners/ff-banner-2.svg',
+    'Join Free',
+    '/tournaments?type=FREE_DAILY',
+    'FREE',
+    '#4CAF50',
+    true,
+    2,
+    true,
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP
+  ),
+  (
+    'hero-banner-withdraw',
+    'Fast Withdrawals',
+    'Winnings credited instantly to your wallet',
+    '/banners/feature-withdraw.svg',
+    'View Wallet',
+    '/wallet',
+    null,
+    null,
+    true,
+    3,
+    true,
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP
+  ),
+  (
+    'hero-banner-support',
+    '24/7 Support',
+    'Raise a ticket — our team responds within 1 hour',
+    '/banners/feature-support.svg',
+    'Get Help',
+    '/support',
+    null,
+    null,
+    true,
+    4,
+    true,
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP
+  ),
+  (
+    'hero-banner-clash-squad',
+    'Clash Squad Challenges',
+    '1v1 to 4v4 — challenge any player for real money',
+    '/banners/ff-cs-banner.svg',
+    'Challenge Now',
+    '/challenges',
+    'NEW',
+    '#9C27B0',
+    true,
+    5,
+    true,
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP
+  )
+ON CONFLICT ("id") DO NOTHING;

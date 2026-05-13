@@ -1,0 +1,30 @@
+{
+  "name": "fireslot-nepal",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.0.0",
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "db:generate": "pnpm --filter @fireslot/db generate",
+    "db:migrate": "pnpm --filter @fireslot/db migrate",
+    "db:seed": "pnpm --filter @fireslot/db seed",
+    "db:studio": "pnpm --filter @fireslot/db studio"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@nestjs/core",
+      "@prisma/client",
+      "@prisma/engines",
+      "prisma",
+      "protobufjs"
+    ]
+  },
+  "devDependencies": {
+    "turbo": "^2.0.0",
+    "typescript": "^5.4.0",
+    "prettier": "^3.2.5"
+  }
+}

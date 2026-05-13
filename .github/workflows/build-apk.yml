@@ -1,0 +1,193 @@
+name: Build and Release APK
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  JAVA_VERSION: "17"
+  ANDROID_API_LEVEL: "34"
+  ANDROID_BUILD_TOOLS_VERSION: "34.0.0"
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "pnpm"
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          api-level: ${{ env.ANDROID_API_LEVEL }}
+          build-tools-version: ${{ env.ANDROID_BUILD_TOOLS_VERSION }}
+
+      - name: Get app version info
+        id: version
+        run: |
+          VERSION_CODE=$(git rev-list --count HEAD)
+          COMMIT_HASH=$(git rev-parse --short HEAD)
+          VERSION_NAME="1.0.${VERSION_CODE}-${COMMIT_HASH}"
+          echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
+          echo "commit_hash=$COMMIT_HASH" >> $GITHUB_OUTPUT
+          echo "version_name=$VERSION_NAME" >> $GITHUB_OUTPUT
+          echo "Building APK version: $VERSION_NAME (code: $VERSION_CODE)"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build web assets
+        run: pnpm --filter @fireslot/web build
+
+      - name: Ensure Android platform exists
+        run: |
+          if [ ! -d apps/web/android ]; then
+            echo "Android platform not found, adding it..."
+            pnpm --filter @fireslot/web exec cap add android
+          else
+            echo "Android platform already present"
+          fi
+
+      - name: Sync Capacitor
+        run: pnpm --filter @fireslot/web exec cap sync android
+
+      - name: Build APK (Debug)
+        run: |
+          cd apps/web/android
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Copy APK to downloads folder
+        run: |
+          mkdir -p public/downloads
+          cp apps/web/android/app/build/outputs/apk/debug/app-debug.apk "public/downloads/fireslot-nepal-${{ steps.version.outputs.version_name }}.apk"
+          ls -lh public/downloads/
+
+      - name: Calculate APK checksum
+        id: checksum
+        run: |
+          CHECKSUM=$(sha256sum "public/downloads/fireslot-nepal-${{ steps.version.outputs.version_name }}.apk" | cut -d' ' -f1)
+          echo "sha256=$CHECKSUM" >> $GITHUB_OUTPUT
+          echo "APK SHA256: $CHECKSUM"
+
+      - name: Register release in API database
+        env:
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+          CI_API_KEY: ${{ secrets.CI_API_KEY }}
+        run: |
+          APK_URL="https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.version_name }}/fireslot-nepal-${{ steps.version.outputs.version_name }}.apk"
+          API_BASE="${NEXT_PUBLIC_API_URL:-https://esport-api-steel.vercel.app/api}"
+          echo "Registering release v${{ steps.version.outputs.version_name }} at ${API_BASE}/app/ci/register-release"
+          HTTP_STATUS=$(curl -sS -o /tmp/ci_release_response.json -w "%{http_code}" \
+            -X POST "${API_BASE}/app/ci/register-release" \
+            -H "Content-Type: application/json" \
+            -H "x-ci-api-key: ${CI_API_KEY}" \
+            -d "{\"version\":\"${{ steps.version.outputs.version_name }}\",\"apkUrl\":\"${APK_URL}\",\"sha256\":\"${{ steps.checksum.outputs.sha256 }}\"}")
+          cat /tmp/ci_release_response.json || true
+          if [ "$HTTP_STATUS" -ge 200 ] && [ "$HTTP_STATUS" -lt 300 ]; then
+            echo "✅ Release registered in database (HTTP $HTTP_STATUS)"
+          else
+            echo "⚠️  Could not register release in DB (HTTP $HTTP_STATUS) — APK still available on GitHub Releases"
+          fi
+
+      - name: Upload APK as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fireslot-nepal-apk
+          path: public/downloads/fireslot-nepal-${{ steps.version.outputs.version_name }}.apk
+          retention-days: 90
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: public/downloads/fireslot-nepal-${{ steps.version.outputs.version_name }}.apk
+          tag_name: v${{ steps.version.outputs.version_name }}
+          name: FireSlot Nepal v${{ steps.version.outputs.version_name }}
+          body: |
+            ## 🎮 FireSlot Nepal APK Release
+
+            **Version:** ${{ steps.version.outputs.version_name }}
+            **Commit:** ${{ steps.version.outputs.commit_hash }}
+            **Build Date:** ${{ github.event.head_commit.timestamp || github.event.repository.updated_at }}
+
+            ### 📥 Installation
+            1. Download the APK file below
+            2. On your Android device, enable "Unknown Sources"
+            3. Open the APK file to install
+
+            ### 🔐 Security
+            **SHA256 Checksum:**
+            ```
+            ${{ steps.checksum.outputs.sha256 }}
+            ```
+
+            ### 📝 Changelog
+            View commits in this build: [${{ steps.version.outputs.commit_hash }}](https://github.com/${{ github.repository }}/commit/${{ steps.version.outputs.commit_hash }})
+
+            ---
+            Built automatically on commit by GitHub Actions.
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Notify build status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ APK build successful: v${{ steps.version.outputs.version_name }}"
+            echo "📦 Download: https://github.com/${{ github.repository }}/releases/tag/v${{ steps.version.outputs.version_name }}"
+          else
+            echo "❌ APK build failed"
+          fi
+
+      - name: Upload to deployment server (optional)
+        if: success()
+        run: |
+          echo "APK ready at: public/downloads/fireslot-nepal-${{ steps.version.outputs.version_name }}.apk"
+          echo "GitHub Release: https://github.com/${{ github.repository }}/releases/tag/v${{ steps.version.outputs.version_name }}"
+          # Add your deployment script here
+          # Example: scp, curl to API, Firebase Storage, etc.
+
+  notify-users:
+    needs: build-apk
+    runs-on: ubuntu-latest
+    if: success()
+    steps:
+      - name: Notify update availability
+        run: |
+          echo "✅ New APK version available!"
+          echo "Users with in-app update checker will see notification on next check"
+          echo "To manually trigger update, admin can:"
+          echo "1. Go to Admin → Configuration → App Update Settings"
+          echo "2. Update APP_LATEST_VERSION to: ${{ needs.build-apk.outputs.version_name }}"
+          echo "3. Click Save"

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { SplashScreen } from './SplashScreen'
 import { useLocalNotifications } from '@/hooks/useLocalNotifications'
+import { API_BASE } from '@/lib/api'
 
 export function RootClient({ children }: { children: React.ReactNode }) {
   const [splashVisible, setSplashVisible] = useState(true)
@@ -21,7 +22,7 @@ export function RootClient({ children }: { children: React.ReactNode }) {
           setAuthChecked(true)
           return
         }
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+        const res = await fetch(`${API_BASE}/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
         if (!res.ok) {
           localStorage.removeItem('fs_token')
         }

@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
+import { API_BASE } from '@/lib/api'
 
 export function SplashScreen({ onComplete }: { onComplete: () => void }) {
   const [banner, setBanner] = useState<any>(null)
   const [phase, setPhase] = useState<'enter' | 'hold' | 'exit'>('enter')
 
   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/banners/splash`)
+    fetch(`${API_BASE}/banners/splash`)
       .then((r) => r.json())
       .then((b) => setBanner(b))
       .catch(() => {})

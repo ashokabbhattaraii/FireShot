@@ -56,7 +56,7 @@ export function compareVersions(v1: string, v2: string): number {
  * Check for app updates by calling the backend config endpoint
  */
 export async function checkForUpdates(
-  apiUrl: string = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001",
+  apiUrl: string = process.env.NEXT_PUBLIC_API_URL || "https://fire-shot-api.vercel.app/api",
 ): Promise<UpdateCheckResult> {
   const currentVersion = await getCurrentAppVersion();
 

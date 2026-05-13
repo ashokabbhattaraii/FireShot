@@ -1,5 +1,19 @@
 function normalizeApiUrl(url: string): string {
-  const trimmed = url.trim().replace(/\/+$/, "");
+  const trimmed = (url || "").trim().replace(/\/+$/, "");
+  if (!trimmed) return "http://localhost:4000/api";
+
+  // Avoid mixed-content failures when an HTTPS page receives an HTTP API URL from env.
+  if (
+    typeof window !== "undefined" &&
+    window.location.protocol === "https:" &&
+    trimmed.startsWith("http://") &&
+    !trimmed.includes("localhost") &&
+    !trimmed.includes("127.0.0.1")
+  ) {
+    const upgraded = `https://${trimmed.slice("http://".length)}`;
+    return upgraded.endsWith("/api") ? upgraded : `${upgraded}/api`;
+  }
+
   return trimmed.endsWith("/api") ? trimmed : `${trimmed}/api`;
 }
 

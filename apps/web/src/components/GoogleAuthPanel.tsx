@@ -2,7 +2,7 @@
 
 import { useGoogleLogin } from "@react-oauth/google";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api, auth, API_BASE } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { InlineLoading } from "@/components/ui";
@@ -65,7 +65,7 @@ export function GoogleAuthPanel({
   const [loading, setLoading] = useState(false);
   const [referralCode, setReferralCode] = useState("");
 
-  async function signIn(payload: { credential?: string; accessToken?: string }) {
+  const signIn = useCallback(async (payload: { credential?: string; accessToken?: string }) => {
     if (!payload.credential && !payload.accessToken) {
       setErr("Google sign-in did not return a token");
       return;
@@ -119,7 +119,7 @@ export function GoogleAuthPanel({
     } finally {
       setLoading(false);
     }
-  }
+  }, [next, referralCode, refresh, router, showReferral]);
 
   // Handle OAuth redirect — token comes back in URL hash fragment
   useEffect(() => {
@@ -149,7 +149,7 @@ export function GoogleAuthPanel({
     window.history.replaceState({}, document.title, cleanUrl);
     loginLog("google_redirect_token_received");
     void signIn({ accessToken: token });
-  }, []);
+  }, [signIn]);
 
   // Popup-based login — works in Capacitor WebView (no iframe)
   const googleLogin = useGoogleLogin({
@@ -162,7 +162,9 @@ export function GoogleAuthPanel({
   const startNativeGoogleLogin = () => {
     if (!clientId || typeof window === "undefined") return;
 
-    const configuredRedirect = (process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI || "").trim();
+    const configuredRedirect = (process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI || "")
+      .trim()
+      .replace(/\/+$/, "");
     const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "");
     const origin = appUrl || window.location.origin.replace(/\/$/, "");
     const redirectUri = configuredRedirect || `${origin}/login`;
@@ -210,7 +212,7 @@ export function GoogleAuthPanel({
             type="button"
             onClick={() => {
               if (loading) return;
-              if (isNative || isAndroidWebView()) {
+              if (isNative) {
                 startNativeGoogleLogin();
                 return;
               }

@@ -8,6 +8,7 @@ import {
   NotFoundException,
   OnModuleInit,
 } from "@nestjs/common";
+import { Cron, CronExpression } from "@nestjs/schedule";
 import {
   PrismaClient,
   TournamentStatus,
@@ -480,7 +481,10 @@ export class TournamentsService implements OnModuleInit {
   async setStatus(id: string, dto: UpdateTournamentStatusDto) {
     const updated = await this.prisma.tournament.update({
       where: { id },
-      data: { status: dto.status },
+      data: {
+        status: dto.status,
+        ...(dto.status === TournamentStatus.LIVE ? { liveStartedAt: new Date() } : {}),
+      },
     });
     this.invalidateReadCaches(id);
     this.realtime.emitToTournament(id, "tournament_status_changed", { status: dto.status });
@@ -494,12 +498,148 @@ export class TournamentsService implements OnModuleInit {
         roomId: dto.roomId,
         roomPassword: dto.roomPassword,
         status: TournamentStatus.LIVE,
+        liveStartedAt: new Date(),
       },
     });
     this.invalidateReadCaches(id);
     // Don't leak credentials over realtime — clients pull fresh via API after this nudge.
     this.realtime.emitToTournament(id, "room_details_published", { tournamentId: id });
     return updated;
+  }
+
+  @Cron(CronExpression.EVERY_5_MINUTES)
+  async autoMoveLiveTournamentsToResults() {
+    const timeoutMins = this.config.getNumber("TOURNAMENT_LIVE_TO_PENDING_RESULTS_MINS");
+    const cutoff = new Date(Date.now() - timeoutMins * 60_000);
+    const liveTournaments = await this.prisma.tournament.findMany({
+      where: { status: TournamentStatus.LIVE },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        liveStartedAt: true,
+        roomLockedAt: true,
+        updatedAt: true,
+        createdById: true,
+        participants: { select: { userId: true } },
+      },
+    });
+
+    for (const tournament of liveTournaments) {
+      const startedAt = tournament.liveStartedAt ?? tournament.roomLockedAt ?? tournament.updatedAt;
+      if (startedAt.getTime() > cutoff.getTime()) continue;
+
+      const recipients = new Set<string>(tournament.participants.map((p) => p.userId));
+      if (tournament.createdById) recipients.add(tournament.createdById);
+
+      const transitioned = await this.prisma.$transaction(async (tx: any) => {
+        const result = await tx.tournament.updateMany({
+          where: { id: tournament.id, status: TournamentStatus.LIVE },
+          data: { status: TournamentStatus.PENDING_RESULTS },
+        });
+        if (result.count !== 1) return false;
+
+        for (const userId of recipients) {
+          await tx.notification.create({
+            data: {
+              userId,
+              type: "TOURNAMENT",
+              title: `${tournament.title} is waiting for results`,
+              body: `This match stayed live for ${timeoutMins} minutes. Submit or verify the result now.`,
+            },
+          });
+        }
+        return true;
+      });
+
+      if (!transitioned) continue;
+
+      this.invalidateReadCaches(tournament.id);
+      this.realtime.emitToTournament(tournament.id, "tournament_status_changed", {
+        status: TournamentStatus.PENDING_RESULTS,
+        reason: "auto_timeout",
+      });
+      for (const userId of recipients) {
+        this.realtime.emitToUser(userId, "notification_new", {
+          title: `${tournament.title} is waiting for results`,
+          body: `This match stayed live for ${timeoutMins} minutes. Submit or verify the result now.`,
+          data: { route: "/my-matches", tournamentId: tournament.id },
+        });
+      }
+    }
+  }
+
+  @Cron(CronExpression.EVERY_5_MINUTES)
+  async autoStartUpcomingTournaments() {
+    if (!this.config.getBool("AUTO_STATUS_FLOW_ENABLED")) return;
+    const minsAfter = this.config.getNumber("AUTO_START_MINS_BEFORE");
+    if (minsAfter <= 0) return;
+
+    const cutoff = new Date(Date.now() - minsAfter * 60_000);
+    const upcoming = await this.prisma.tournament.findMany({
+      where: {
+        status: TournamentStatus.UPCOMING,
+        dateTime: { lte: cutoff },
+        roomId: { not: null },
+      },
+      select: { id: true, title: true, participants: { select: { userId: true } } },
+    });
+
+    for (const t of upcoming) {
+      await this.prisma.tournament.update({
+        where: { id: t.id },
+        data: { status: TournamentStatus.LIVE, liveStartedAt: new Date() },
+      });
+      this.invalidateReadCaches(t.id);
+      this.realtime.emitToTournament(t.id, "tournament_status_changed", {
+        status: TournamentStatus.LIVE,
+        reason: "auto_start",
+      });
+      for (const p of t.participants) {
+        this.realtime.emitToUser(p.userId, "notification_new", {
+          title: `${t.title} is now LIVE!`,
+          body: "The match has started. Join the room now.",
+          data: { route: "/my-matches", tournamentId: t.id },
+        });
+      }
+    }
+  }
+
+  @Cron(CronExpression.EVERY_5_MINUTES)
+  async autoCompletePendingResults() {
+    if (!this.config.getBool("AUTO_STATUS_FLOW_ENABLED")) return;
+    const timeoutMins = this.config.getNumber("PENDING_RESULTS_TO_COMPLETED_MINS");
+    if (timeoutMins <= 0) return;
+
+    const cutoff = new Date(Date.now() - timeoutMins * 60_000);
+    const pending = await this.prisma.tournament.findMany({
+      where: { status: TournamentStatus.PENDING_RESULTS, updatedAt: { lte: cutoff } },
+      select: { id: true, title: true, participants: { select: { userId: true } } },
+    });
+
+    for (const t of pending) {
+      const unverified = await this.prisma.matchResult.count({
+        where: { tournamentId: t.id, verified: false },
+      });
+      if (unverified > 0) continue;
+
+      await this.prisma.tournament.update({
+        where: { id: t.id },
+        data: { status: TournamentStatus.COMPLETED },
+      });
+      this.invalidateReadCaches(t.id);
+      this.realtime.emitToTournament(t.id, "tournament_status_changed", {
+        status: TournamentStatus.COMPLETED,
+        reason: "auto_complete",
+      });
+      for (const p of t.participants) {
+        this.realtime.emitToUser(p.userId, "notification_new", {
+          title: `${t.title} has been completed`,
+          body: "All results are verified. Check your prizes!",
+          data: { route: "/my-matches", tournamentId: t.id },
+        });
+      }
+    }
   }
 
   async delete(id: string) {

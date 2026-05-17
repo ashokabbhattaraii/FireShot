@@ -21,6 +21,8 @@ const PAYMENT_METHODS = [
 const FEE_KEYS = ["SYSTEM_FEE_PERCENT", "CHALLENGE_FEE_PERCENT", "WITHDRAWAL_FEE_PERCENT"];
 const WALLET_LIMIT_KEYS = ["MIN_DEPOSIT_AMOUNT_NPR", "MIN_WITHDRAWAL_AMOUNT_NPR"];
 const APP_UPDATE_KEYS = ["APP_LATEST_VERSION", "APP_MIN_ANDROID_VERSION", "APP_FORCE_UPDATE_ENABLED", "APP_DOWNLOAD_ENABLED"];
+const TIMING_KEYS = ["RESULT_SUBMIT_DELAY_MINS", "TOURNAMENT_LIVE_TO_PENDING_RESULTS_MINS", "AUTO_START_MINS_BEFORE", "PENDING_RESULTS_TO_COMPLETED_MINS"];
+const AUTO_FLOW_KEYS = ["AUTO_STATUS_FLOW_ENABLED"];
 
 export default function ConfigPage() {
   const [items, setItems] = useState<ConfigItem[]>([]);
@@ -101,6 +103,8 @@ export default function ConfigPage() {
   const flatSysItems = Object.values(sysItems).flat();
   const feeConfigs = flatSysItems.filter((config) => FEE_KEYS.includes(config.key));
   const walletLimitConfigs = flatSysItems.filter((config) => WALLET_LIMIT_KEYS.includes(config.key));
+  const timingConfigs = flatSysItems.filter((config) => TIMING_KEYS.includes(config.key));
+  const autoFlowConfigs = flatSysItems.filter((config) => AUTO_FLOW_KEYS.includes(config.key));
   const appUpdateConfigs = flatSysItems.filter((config) => APP_UPDATE_KEYS.includes(config.key));
 
   return (
@@ -258,6 +262,65 @@ export default function ConfigPage() {
                       ? "Users cannot submit wallet deposit requests below this amount."
                       : "Users cannot submit withdrawal requests below this amount."
                     }
+                    value={sysDrafts[config.key] ?? ""}
+                    onChange={(v) => setSysDrafts((d) => ({ ...d, [config.key]: v }))}
+                    onSave={() => saveSys(config.key)}
+                    saving={savingSysKey === config.key}
+                    changed={(sysDrafts[config.key] ?? "") !== config.value}
+                    type={config.type}
+                    mono
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {timingConfigs.length > 0 && (
+            <div style={{ background: "var(--fs-surface-1)", borderRadius: 14, border: "0.5px solid var(--fs-border)", overflow: "hidden" }}>
+              <div style={{ padding: "14px 16px", borderBottom: "0.5px solid var(--fs-border)", background: "var(--fs-surface-2)" }}>
+                <p style={{ fontSize: 14, fontWeight: 700, color: "var(--fs-text-1)" }}>Tournament Timing</p>
+                <p style={{ fontSize: 11, color: "var(--fs-text-3)", marginTop: 2 }}>Control how long rooms and live matches stay open before the system escalates them automatically.</p>
+              </div>
+              <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 16 }}>
+                {timingConfigs.map((config) => (
+                  <ConfigField
+                    key={config.key}
+                    label={config.label}
+                    description={
+                      config.key === "RESULT_SUBMIT_DELAY_MINS"
+                        ? "How long players must wait after room sharing before result submission opens."
+                        : config.key === "AUTO_START_MINS_BEFORE"
+                        ? "Minutes after scheduled dateTime before auto-transitioning UPCOMING→LIVE (0=disabled). Room must be published."
+                        : config.key === "PENDING_RESULTS_TO_COMPLETED_MINS"
+                        ? "Minutes after entering PENDING_RESULTS before auto-completing (0=disabled). Only completes if all results are verified."
+                        : "How long a LIVE tournament can stay active before it is moved to PENDING_RESULTS automatically."
+                    }
+                    value={sysDrafts[config.key] ?? ""}
+                    onChange={(v) => setSysDrafts((d) => ({ ...d, [config.key]: v }))}
+                    onSave={() => saveSys(config.key)}
+                    saving={savingSysKey === config.key}
+                    changed={(sysDrafts[config.key] ?? "") !== config.value}
+                    type={config.type}
+                    mono
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Auto Status Flow */}
+          {autoFlowConfigs.length > 0 && (
+            <div style={{ background: "var(--fs-surface-1)", borderRadius: 14, border: "0.5px solid var(--fs-border)", overflow: "hidden" }}>
+              <div style={{ padding: "14px 16px", borderBottom: "0.5px solid var(--fs-border)", background: "var(--fs-surface-2)" }}>
+                <p style={{ fontSize: 14, fontWeight: 700, color: "var(--fs-text-1)" }}>Auto Status Flow</p>
+                <p style={{ fontSize: 11, color: "var(--fs-text-3)", marginTop: 2 }}>Enable automatic tournament status transitions. When enabled, tournaments will auto-progress: UPCOMING→LIVE (after scheduled time + delay), LIVE→PENDING_RESULTS (after timeout), PENDING_RESULTS→COMPLETED (after all results verified + delay).</p>
+              </div>
+              <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 16 }}>
+                {autoFlowConfigs.map((config) => (
+                  <ConfigField
+                    key={config.key}
+                    label={config.label}
+                    description="Master switch for automatic tournament status transitions."
                     value={sysDrafts[config.key] ?? ""}
                     onChange={(v) => setSysDrafts((d) => ({ ...d, [config.key]: v }))}
                     onSave={() => saveSys(config.key)}

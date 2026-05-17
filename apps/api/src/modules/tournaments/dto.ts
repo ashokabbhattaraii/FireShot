@@ -60,7 +60,7 @@ export class CreateTournamentDto {
 }
 
 export class UpdateTournamentStatusDto {
-  @IsEnum(["UPCOMING", "LIVE", "COMPLETED", "CANCELLED"])
+  @IsEnum(["UPCOMING", "LIVE", "PENDING_RESULTS", "COMPLETED", "CANCELLED"])
   status!: TournamentStatus;
 }
 

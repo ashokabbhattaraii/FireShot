@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { api } from "@/lib/api";
+import { useEffect, useMemo, useState, useRef } from "react";
+import { api, FILE_BASE } from "@/lib/api";
 import {
   GameModeLabels,
   GameModes,
@@ -48,6 +48,14 @@ export default function AdminTournaments() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [actionKey, setActionKey] = useState<string | null>(null);
+  // Inline results modal state
+  const [resultsModalOpen, setResultsModalOpen] = useState(false);
+  const [modalTournament, setModalTournament] = useState<any | null>(null);
+  const [resultsItems, setResultsItems] = useState<any[]>([]);
+  const [modalLoading, setModalLoading] = useState(false);
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [verifyingId, setVerifyingId] = useState<string | null>(null);
+  const [drafts, setDrafts] = useState<Record<string, { placement: string; kills: string; note: string }>>({});
 
   async function load(showLoading = true) {
     if (showLoading) setLoading(true);
@@ -153,6 +161,93 @@ export default function AdminTournaments() {
     } finally {
       setActionKey(null);
     }
+  }
+
+  async function openResultsModal(tournament: any) {
+    setModalTournament(tournament);
+    setResultsModalOpen(true);
+    setModalLoading(true);
+    try {
+      const data = await api(`/results?verified=false&tournamentId=${encodeURIComponent(tournament.id)}`);
+      setResultsItems(data);
+      setDrafts((prev) => {
+        const next = { ...prev };
+        for (const item of data) {
+          next[item.id] = next[item.id] ?? {
+            placement: item.placement ?? "",
+            kills: item.kills != null ? String(item.kills) : "",
+            note: item.note ?? "",
+          };
+        }
+        return next;
+      });
+    } catch (e) {
+      alert("Failed to load results");
+    } finally {
+      setModalLoading(false);
+    }
+  }
+
+  async function saveResult(id: string) {
+    const draft = drafts[id];
+    if (!draft) return;
+    setSavingId(id);
+    try {
+      await api(`/results/${id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          placement: draft.placement ? Number(draft.placement) : null,
+          kills: draft.kills ? Number(draft.kills) : null,
+          note: draft.note || null,
+        }),
+      });
+      const updated = await api(`/results/${id}`);
+      setResultsItems((prev) => prev.map((r) => (r.id === id ? updated : r)));
+    } catch (e: any) {
+      alert(e.message || "Failed to save");
+    } finally {
+      setSavingId(null);
+    }
+  }
+
+  async function verifyResult(id: string) {
+    setVerifyingId(id);
+    try {
+      await api(`/results/${id}/verify`, { method: "POST" });
+      setResultsItems((prev) => prev.filter((r) => r.id !== id));
+      setDrafts((prev) => { const next = { ...prev }; delete next[id]; return next; });
+    } catch (e: any) {
+      alert(e.message || "Failed to verify");
+    } finally {
+      setVerifyingId(null);
+    }
+  }
+
+  // Auto-save timers
+  const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout> | null>>({});
+
+  function scheduleAutoSave(id: string) {
+    if (saveTimers.current[id]) clearTimeout(saveTimers.current[id] as any);
+    saveTimers.current[id] = setTimeout(() => {
+      saveResult(id).catch(() => {});
+      saveTimers.current[id] = null;
+    }, 1200);
+  }
+
+  async function verifyAll() {
+    if (!confirm("Verify ALL results for this tournament? This action cannot be undone.")) return;
+    for (const r of [...resultsItems]) {
+      try {
+        await verifyResult(r.id);
+      } catch (e) {
+        // continue
+      }
+    }
+    // refresh list
+    try {
+      const data = await api(`/results?verified=false&tournamentId=${encodeURIComponent(modalTournament.id)}`);
+      setResultsItems(data);
+    } catch (e) {}
   }
 
   function applyModeDefaults(mode: string) {
@@ -478,6 +573,16 @@ export default function AdminTournaments() {
                     Delete
                   </ButtonLoading>
                 </button>
+                {(t.status === "PENDING_RESULTS" || t.status === "LIVE") && (
+                  <button
+                    type="button"
+                    className="btn-outline text-xs"
+                    onClick={() => openResultsModal(t)}
+                    disabled={actionKey?.startsWith(`${t.id}:`)}
+                  >
+                    Results
+                  </button>
+                )}
                 <select
                   onChange={(e) => setStatus(t.id, e.target.value)}
                   className="input text-xs flex-1 min-w-[120px]"
@@ -493,6 +598,58 @@ export default function AdminTournaments() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {resultsModalOpen && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center px-4 py-8">
+          <div className="absolute inset-0 bg-black/70" onClick={() => setResultsModalOpen(false)} />
+          <div className="relative z-30 w-full max-w-3xl max-h-[80vh] overflow-y-auto bg-[#0b0a12] rounded-lg p-4 text-white">
+            <div className="flex items-center justify-between sticky top-0 bg-[#0b0a12] pb-3 z-10">
+              <h3 className="font-semibold">Results — {modalTournament?.title}</h3>
+              <div className="flex items-center gap-2">
+                {resultsItems.length > 0 && (
+                  <button className="btn-outline text-sm" onClick={() => verifyAll()}>Verify All</button>
+                )}
+                <button className="btn text-sm" onClick={() => setResultsModalOpen(false)}>Close</button>
+              </div>
+            </div>
+            <div className="space-y-3">
+              {modalLoading ? (
+                <p className="text-sm text-white/60">Loading results...</p>
+              ) : resultsItems.length === 0 ? (
+                <p className="text-sm text-white/60">No pending results for this tournament.</p>
+              ) : (
+                resultsItems.map((r) => (
+                  <div key={r.id} className="rounded-md border border-border bg-surface/50 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1">
+                        <p className="text-xs text-white/70 font-medium">
+                          {r.submitter?.profile?.ign ?? r.submitter?.email ?? r.id}
+                        </p>
+                        {r.screenshotUrl && (
+                          <img src={`${FILE_BASE}${r.screenshotUrl}`} alt="screenshot" className="mt-2 rounded max-h-32 border border-border" />
+                        )}
+                        <div className="mt-2 grid grid-cols-3 gap-2">
+                          <input className="input text-sm" placeholder="Placement" value={drafts[r.id]?.placement ?? ""} onChange={(e) => { setDrafts((p) => ({ ...p, [r.id]: { ...(p[r.id] || { placement: "", kills: "", note: "" }), placement: e.target.value } })); scheduleAutoSave(r.id); }} />
+                          <input className="input text-sm" placeholder="Kills" inputMode="numeric" value={drafts[r.id]?.kills ?? ""} onChange={(e) => { setDrafts((p) => ({ ...p, [r.id]: { ...(p[r.id] || { placement: "", kills: "", note: "" }), kills: e.target.value.replace(/\D/g, "") } })); scheduleAutoSave(r.id); }} />
+                          <input className="input text-sm" placeholder="Note" value={drafts[r.id]?.note ?? ""} onChange={(e) => { setDrafts((p) => ({ ...p, [r.id]: { ...(p[r.id] || { placement: "", kills: "", note: "" }), note: e.target.value } })); scheduleAutoSave(r.id); }} />
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-2">
+                        <button className="btn-outline text-xs" onClick={() => { if (saveTimers.current[r.id]) { clearTimeout(saveTimers.current[r.id] as any); saveTimers.current[r.id] = null; } saveResult(r.id); }} disabled={savingId === r.id}>
+                          <ButtonLoading loading={savingId === r.id} loadingText="...">Save</ButtonLoading>
+                        </button>
+                        <button className="btn-primary text-xs" onClick={() => verifyResult(r.id)} disabled={verifyingId === r.id}>
+                          <ButtonLoading loading={verifyingId === r.id} loadingText="...">Verify</ButtonLoading>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

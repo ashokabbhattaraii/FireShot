@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Check, Copy, Gift, ShieldAlert } from "lucide-react";
+import { Gift, ArrowRight } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { profileSchema } from "@fireslot/shared";
@@ -20,8 +20,6 @@ export default function ProfilePage() {
   });
   const [msg, setMsg] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [referral, setReferral] = useState<any>(null);
-  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (user?.profile)
@@ -34,18 +32,6 @@ export default function ProfilePage() {
         isEmulator: user.profile.isEmulator ?? false,
       });
   }, [user]);
-
-  useEffect(() => {
-    if (!user) return;
-    api("/referrals/me").then(setReferral).catch(() => setReferral(null));
-  }, [user]);
-
-  function copyCode() {
-    if (!referral?.code) return;
-    navigator.clipboard.writeText(referral.code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -94,41 +80,26 @@ export default function ProfilePage() {
         description="Keep your Free Fire UID, IGN, level, and region accurate for tournament verification."
       />
 
-      {referral && (
-        <section className="mt-4 rounded-xl border border-[rgba(255,193,7,0.28)] bg-[linear-gradient(135deg,rgba(255,193,7,0.16),rgba(229,57,53,0.1),rgba(255,255,255,0.04))] p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-[10px] uppercase tracking-[0.22em] text-[var(--fs-gold)]">Refer & Earn</p>
-              <h2 className="mt-2 flex items-center gap-2 text-lg font-bold text-[var(--fs-text-1)]">
-                <Gift size={16} />
-                Your code: <span className="font-mono tracking-[0.16em]">{referral.code}</span>
-              </h2>
-              <p className="mt-2 text-xs text-[var(--fs-text-2)]">
-                Friend gets Rs {referral.signupRewardNpr}. You get Rs {referral.referrerDepositRewardNpr} after their first approved deposit.
-              </p>
-            </div>
-            <button type="button" onClick={copyCode} className="btn-primary shrink-0 text-xs">
-              {copied ? <Check size={14} /> : <Copy size={14} />}
-              {copied ? "Copied" : "Copy"}
-            </button>
+      <Link
+        href="/refer"
+        className="mt-4 block rounded-xl border border-[rgba(255,193,7,0.28)] bg-[linear-gradient(135deg,rgba(255,193,7,0.16),rgba(229,57,53,0.1),rgba(255,255,255,0.04))] p-4 transition hover:border-[rgba(255,193,7,0.45)]"
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[10px] uppercase tracking-[0.22em] text-[var(--fs-gold)]">Refer & Earn</p>
+            <h2 className="mt-2 flex items-center gap-2 text-lg font-bold text-[var(--fs-text-1)]">
+              <Gift size={16} />
+              Open your referral center
+            </h2>
+            <p className="mt-2 text-xs text-[var(--fs-text-2)]">
+              Share your code, track deposits, and watch rewards land in your wallet.
+            </p>
           </div>
-
-          <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-            <MiniStat label="Invited" value={referral.stats?.invited ?? 0} />
-            <MiniStat label="Deposits" value={referral.stats?.firstDeposits ?? 0} />
-            <MiniStat label="Earned" value={`Rs ${referral.stats?.earnedNpr ?? 0}`} />
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[rgba(255,193,7,0.16)] text-[var(--fs-gold)]">
+            <ArrowRight size={18} />
           </div>
-
-          <p className="mt-3 flex items-start gap-2 text-[11px] text-amber-200/90">
-            <ShieldAlert size={14} className="mt-0.5 shrink-0" />
-            <span>{referral.warning ?? "No multiple accounts. Self-referrals and fake accounts may be reversed or banned."}</span>
-          </p>
-
-          <Link href="/refer" className="mt-3 inline-flex text-xs font-semibold text-[var(--fs-gold)] underline underline-offset-2">
-            Open full Refer & Earn center
-          </Link>
-        </section>
-      )}
+        </div>
+      </Link>
 
       <form onSubmit={submit} className="card mt-4 space-y-3">
         <div>
@@ -220,15 +191,6 @@ export default function ProfilePage() {
         </button>
         {msg && <p className="text-sm text-white/70">{msg}</p>}
       </form>
-    </div>
-  );
-}
-
-function MiniStat({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] p-2">
-      <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--fs-text-3)]">{label}</p>
-      <p className="mt-1 text-sm font-bold text-[var(--fs-text-1)]">{value}</p>
     </div>
   );
 }

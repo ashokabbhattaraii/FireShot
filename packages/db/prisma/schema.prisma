@@ -545,6 +545,7 @@ model Tournament {
   actualPlayers    Int             @default(0)
   roomLocked       Boolean         @default(false)
   roomLockedAt     DateTime?
+  liveStartedAt    DateTime?
   minLevel         Int             @default(40)
   maxHeadshotRate  Float           @default(70)
   allowEmulator    Boolean         @default(false)
@@ -570,6 +571,7 @@ model Tournament {
   @@index([mode, dateTime])
   @@index([type, status])
   @@index([type, dateTime])
+  @@index([status, liveStartedAt])
   @@index([createdById, createdAt])
 }
 

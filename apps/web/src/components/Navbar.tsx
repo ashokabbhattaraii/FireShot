@@ -15,6 +15,7 @@ import {
 import { ViewportToggle } from "./ViewportToggle";
 import { api } from "@/lib/api";
 
+
 export function Navbar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();

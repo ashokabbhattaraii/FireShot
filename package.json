@@ -8,6 +8,8 @@
     "dev": "turbo run dev",
     "build": "turbo run build",
     "lint": "turbo run lint",
+    "apk:debug": "pnpm --filter @fireslot/web build:apk",
+    "apk:release": "pnpm --filter @fireslot/web build:apk:release",
     "db:generate": "pnpm --filter @fireslot/db generate",
     "db:migrate": "pnpm --filter @fireslot/db migrate",
     "db:seed": "pnpm --filter @fireslot/db seed",

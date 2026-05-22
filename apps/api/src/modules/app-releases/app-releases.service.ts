@@ -59,6 +59,11 @@ export class AppReleasesService {
       where: { isLatest: true },
       orderBy: { createdAt: "desc" },
     });
+    const localLatest = await this.getLocalLatestRelease();
+    const dbDate = r?.publishedAt ?? r?.createdAt ?? null;
+    if (localLatest && (!dbDate || new Date(localLatest.publishedAt).getTime() > dbDate.getTime())) {
+      return localLatest;
+    }
     if (!r) return null;
     return {
       version: r.version,
@@ -648,7 +653,7 @@ export class AppReleasesService {
       .split(/[+-]/)[0]
       .split(".")
       .map((part) => Number.parseInt(part, 10) || 0);
-    return Math.max(1, major * 10000 + minor * 100 + patch);
+    return Math.max(1, major * 100_000_000 + minor * 1_000_000 + patch * 10_000);
   }
 
   private publicDownloadUrl(filename: string) {
@@ -737,6 +742,38 @@ export class AppReleasesService {
     return candidates.find((candidate) => existsSync(candidate)) ?? null;
   }
 
+  private async getLocalLatestRelease() {
+    const candidates = [
+      join(this.repoRoot(), "apps/api/public/downloads/latest.json"),
+      join(this.repoRoot(), "public/downloads/latest.json"),
+      join(process.cwd(), "public/downloads/latest.json"),
+    ];
+    for (const candidate of candidates) {
+      if (!existsSync(candidate)) continue;
+      try {
+        const manifest = JSON.parse(await readFile(candidate, "utf8"));
+        const filename = basename(String(manifest.filename || "fireslot-nepal.apk"));
+        if (!/^[A-Za-z0-9._-]+\.apk$/.test(filename)) continue;
+        const filePath = this.localDownloadPath(filename);
+        if (!filePath) continue;
+        const fileStat = await stat(filePath);
+        const builtAt = manifest.builtAt ? new Date(manifest.builtAt) : fileStat.mtime;
+        return {
+          version: String(manifest.version || "1.0.0"),
+          releaseNotes: null,
+          downloadUrl: this.publicDownloadUrl(filename),
+          fileSizeBytes: Number(manifest.fileSizeBytes) || fileStat.size,
+          sha256: typeof manifest.sha256 === "string" ? manifest.sha256 : undefined,
+          publishedAt: Number.isNaN(builtAt.getTime()) ? fileStat.mtime : builtAt,
+          testStatus: "LOCAL_BUILD",
+        };
+      } catch {
+        continue;
+      }
+    }
+    return null;
+  }
+
   private async runCommand(
     label: string,
     command: string,
@@ -820,6 +857,7 @@ export class AppReleasesService {
   }
 
   private async copyToDownloadDirs(source: string, filename: string) {
+    const stableFilename = "fireslot-nepal.apk";
     const dirs = [
       join(this.repoRoot(), "apps/api/public/downloads"),
       join(this.repoRoot(), "public/downloads"),
@@ -828,6 +866,7 @@ export class AppReleasesService {
       dirs.map(async (dir) => {
         await mkdir(dir, { recursive: true });
         await copyFile(source, join(dir, filename));
+        await copyFile(source, join(dir, stableFilename));
       }),
     );
   }

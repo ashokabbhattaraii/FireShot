@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.fireslot.nepal",
+      "sha256_cert_fingerprints": [
+        "4E:0C:97:90:97:B6:9F:2B:28:33:2A:F5:F7:AC:18:A9:23:31:D3:D7:63:D2:C7:9E:56:2C:B6:79:C1:5D:45:49"
+      ]
+    }
+  }
+]

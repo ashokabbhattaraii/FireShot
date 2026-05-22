@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Download, RefreshCw, ShieldAlert } from "lucide-react";
+import { Download, LogOut, RefreshCw, ShieldAlert, WifiOff } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { api, FILE_BASE } from "@/lib/api";
 import { useIsNativeApp } from "@/hooks/useIsNativeApp";
@@ -55,6 +55,20 @@ export function AppConfigGate({ children }: { children: React.ReactNode }) {
   const [appVersion, setAppVersion] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshTick, setRefreshTick] = useState(0);
+  const [online, setOnline] = useState(true);
+
+  useEffect(() => {
+    if (typeof navigator === "undefined") return;
+    setOnline(navigator.onLine);
+    const handleOnline = () => setOnline(true);
+    const handleOffline = () => setOnline(false);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -100,6 +114,20 @@ export function AppConfigGate({ children }: { children: React.ReactNode }) {
         message={config.maintenance.message}
         actionLabel="Check Again"
         onAction={() => setRefreshTick((n) => n + 1)}
+      />
+    );
+  }
+
+  if (isNative && (!online || (!config && error))) {
+    return (
+      <BlockingNotice
+        title={online ? "Connection Problem" : "No Internet Connection"}
+        message="FireSlot Nepal needs internet to load tournaments, wallet, matches, and sign-in. Check your connection and try again."
+        actionLabel="Retry"
+        onAction={() => setRefreshTick((n) => n + 1)}
+        secondaryLabel="Exit App"
+        onSecondary={exitNativeApp}
+        icon="offline"
       />
     );
   }
@@ -150,12 +178,18 @@ function BlockingNotice({
   actionLabel,
   href,
   onAction,
+  secondaryLabel,
+  onSecondary,
+  icon = "alert",
 }: {
   title: string;
   message: string;
   actionLabel: string;
   href?: string;
   onAction?: () => void;
+  secondaryLabel?: string;
+  onSecondary?: () => void;
+  icon?: "alert" | "offline";
 }) {
   const button = href ? (
     <a href={href} download className="btn-primary mt-5 w-full">
@@ -171,14 +205,25 @@ function BlockingNotice({
     <div className="flex min-h-screen items-center justify-center bg-bg px-4">
       <div className="card w-full max-w-md text-center">
         <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg border border-neon-cyan/40 bg-neon-cyan/10 text-neon-cyan">
-          <ShieldAlert size={22} />
+          {icon === "offline" ? <WifiOff size={22} /> : <ShieldAlert size={22} />}
         </div>
         <h1 className="font-display text-2xl text-white">{title}</h1>
         <p className="mt-3 text-sm text-white/65">{message}</p>
         {button}
+        {secondaryLabel && onSecondary && (
+          <button className="btn-outline mt-3 w-full" onClick={onSecondary}>
+            <LogOut size={14} /> {secondaryLabel}
+          </button>
+        )}
       </div>
     </div>
   );
+}
+
+function exitNativeApp() {
+  import("@capacitor/app")
+    .then(({ App }) => App.exitApp())
+    .catch(() => {});
 }
 
 function downloadHref(url?: string | null) {

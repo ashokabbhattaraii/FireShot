@@ -9,6 +9,8 @@ import { InlineLoading } from "@/components/ui";
 import { useIsNativeApp } from "@/hooks/useIsNativeApp";
 
 const LOGIN_LOG_KEY = "fireslot_login_logs";
+const PRODUCTION_APP_URL = "https://fire-shot-web.vercel.app";
+const GOOGLE_REDIRECT_PATH = "/login";
 
 function isAndroidWebView(): boolean {
   if (typeof navigator === "undefined") return false;
@@ -41,7 +43,7 @@ function loginLog(event: string, details: Record<string, unknown> = {}) {
 
 function userFriendlyGoogleError(error: string) {
   if (error.includes("redirect_uri_mismatch")) {
-    return "Google sign-in is blocked because the APK redirect URL is not allowed in Google Console. Update the OAuth redirect URI and try again.";
+    return `Google sign-in is blocked because the OAuth redirect URL is not allowed. The APK must use ${PRODUCTION_APP_URL}${GOOGLE_REDIRECT_PATH}.`;
   }
   if (error.startsWith("Invalid `") || error.includes("PrismaClient")) {
     return "Sign-in service is updating. Please try again in a moment.";
@@ -159,15 +161,16 @@ export function GoogleAuthPanel({
   });
 
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-  const startNativeGoogleLogin = () => {
+  const startNativeGoogleLogin = async () => {
     if (!clientId || typeof window === "undefined") return;
 
     const configuredRedirect = (process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI || "")
       .trim()
       .replace(/\/+$/, "");
     const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "");
-    const origin = appUrl || window.location.origin.replace(/\/$/, "");
-    const redirectUri = configuredRedirect || `${origin}/login`;
+    const currentOrigin = window.location.origin.replace(/\/$/, "");
+    const origin = appUrl || (currentOrigin.startsWith("http") ? currentOrigin : PRODUCTION_APP_URL);
+    const redirectUri = configuredRedirect || `${origin}${GOOGLE_REDIRECT_PATH}`;
 
     const oauthUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
     oauthUrl.searchParams.set("client_id", clientId);
@@ -179,6 +182,17 @@ export function GoogleAuthPanel({
     oauthUrl.searchParams.set("state", crypto.randomUUID?.() ?? String(Date.now()));
 
     loginLog("google_native_start", { redirectUri, origin });
+    const useSystemBrowser =
+      (process.env.NEXT_PUBLIC_GOOGLE_USE_SYSTEM_BROWSER ?? "true").toLowerCase() !== "false";
+    if (useSystemBrowser) {
+      try {
+        const { Browser } = await import("@capacitor/browser");
+        await Browser.open({ url: oauthUrl.toString(), presentationStyle: "fullscreen" });
+        return;
+      } catch (e: any) {
+        loginLog("google_native_browser_fallback", { message: e?.message ?? "Browser open failed" });
+      }
+    }
     window.location.assign(oauthUrl.toString());
   };
 
@@ -213,7 +227,7 @@ export function GoogleAuthPanel({
             onClick={() => {
               if (loading) return;
               if (isNative) {
-                startNativeGoogleLogin();
+                void startNativeGoogleLogin();
                 return;
               }
               googleLogin();

@@ -11,6 +11,24 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WEB_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 REPO_ROOT="$(cd "$WEB_DIR/../.." && pwd)"
 
+if [[ -f "$WEB_DIR/.env.capacitor" ]]; then
+  set -a
+  # shellcheck source=/dev/null
+  source "$WEB_DIR/.env.capacitor"
+  set +a
+fi
+
+for ANDROID_JAVA_HOME in \
+  "/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home" \
+  "/usr/local/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home" \
+  "/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home"; do
+  if [[ -x "$ANDROID_JAVA_HOME/bin/java" ]]; then
+    export JAVA_HOME="$ANDROID_JAVA_HOME"
+    export PATH="$JAVA_HOME/bin:$PATH"
+    break
+  fi
+done
+
 pushd "$REPO_ROOT" >/dev/null
 
 GIT_SHORT_SHA="$(git rev-parse --short HEAD 2>/dev/null || echo dev)"
@@ -37,6 +55,11 @@ fi
 echo "=== FireSlot Nepal APK Build ($MODE) ==="
 echo "Version name: $APP_VERSION_NAME"
 echo "Version code: $APP_VERSION_CODE"
+if [[ -n "${JAVA_HOME:-}" && -x "$JAVA_HOME/bin/java" ]]; then
+  echo "Java: $("$JAVA_HOME/bin/java" -version 2>&1 | head -n 1)"
+else
+  echo "Java: $(java -version 2>&1 | head -n 1)"
+fi
 
 echo "1) Syncing Capacitor Android project..."
 pushd "$WEB_DIR" >/dev/null

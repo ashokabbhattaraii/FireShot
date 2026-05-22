@@ -1,6 +1,8 @@
 import { CapacitorConfig } from '@capacitor/cli'
 
-const serverUrl = process.env.CAPACITOR_SERVER_URL || 'https://esport-web-rho.vercel.app'
+const productionWebUrl = 'https://fire-shot-web.vercel.app'
+const productionApiHost = 'fire-shot-api.vercel.app'
+const serverUrl = process.env.CAPACITOR_SERVER_URL || process.env.NEXT_PUBLIC_APP_URL || productionWebUrl
 const serverHost = new URL(serverUrl).hostname
 
 const config: CapacitorConfig = {
@@ -11,7 +13,15 @@ const config: CapacitorConfig = {
     url: serverUrl,
     cleartext: false,
     androidScheme: 'https',
-    allowNavigation: [serverHost, '*.esport-web-rho.vercel.app', '*.fireslot.vercel.app', 'esport-api-steel.vercel.app', 'accounts.google.com', '*.googleapis.com'],
+    allowNavigation: [
+      serverHost,
+      'fire-shot-web.vercel.app',
+      productionApiHost,
+      'accounts.google.com',
+      '*.google.com',
+      '*.googleapis.com',
+      '*.gstatic.com',
+    ],
     hostname: serverHost,
   },
   plugins: {

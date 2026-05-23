@@ -318,9 +318,7 @@ export class PrizeService {
       if (!t) throw new NotFoundException();
 
       const credits: { userId: string; amount: number; note: string }[] = [];
-      const officialResults = results.filter(
-        (r) => r.placement !== undefined || (r.kills ?? 0) > 0 || r.gotBooyah,
-      );
+      const officialResults = results;
 
       // Tournaments are admin/system managed. Replace any legacy player-submitted
       // rows with the official admin-published scoreboard.

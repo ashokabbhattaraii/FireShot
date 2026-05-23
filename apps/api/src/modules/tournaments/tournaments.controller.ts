@@ -68,6 +68,22 @@ export class TournamentsController {
     return this.svc.checkFreeDailyEligibility(u.sub);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(Role.ADMIN)
+  @RequirePermission("tournaments", "write")
+  @Get("admin/list")
+  adminList(@CurrentUser() u: any) {
+    return this.svc.listAdmin(u.sub, u.role);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(Role.ADMIN)
+  @RequirePermission("tournaments", "write")
+  @Get("admin/assignees")
+  adminAssignees() {
+    return this.svc.listAdminAssignees();
+  }
+
   @Get(":id")
   async getPublic(@Param("id") id: string) {
     return this.svc.getOne(id);
@@ -147,29 +163,37 @@ export class TournamentsController {
   @Roles(Role.ADMIN)
   @RequirePermission("tournaments", "write")
   @Put(":id/status")
-  status(@Param("id") id: string, @Body() dto: UpdateTournamentStatusDto) {
-    return this.svc.setStatus(id, dto);
+  status(@Param("id") id: string, @Body() dto: UpdateTournamentStatusDto, @CurrentUser() u: any) {
+    return this.svc.setStatus(id, dto, u.sub, u.role);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
   @Roles(Role.ADMIN)
   @RequirePermission("tournaments", "write")
   @Put(":id/room")
-  publishRoom(@Param("id") id: string, @Body() dto: PublishRoomDto) {
-    return this.svc.publishRoom(id, dto);
+  publishRoom(@Param("id") id: string, @Body() dto: PublishRoomDto, @CurrentUser() u: any) {
+    return this.svc.publishRoom(id, dto, u.sub, u.role);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(Role.SUPER_ADMIN)
+  @RequirePermission("tournaments", "write")
+  @Put(":id/assign-admin")
+  assignAdmin(@Param("id") id: string, @Body() dto: { adminId?: string | null }, @CurrentUser() u: any) {
+    return this.svc.assignAdmin(id, u.sub, dto.adminId ?? null);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
   @Roles(Role.ADMIN)
   @RequirePermission("tournaments", "write")
   @Delete(":id")
-  delete(@Param("id") id: string) {
-    return this.svc.delete(id);
+  delete(@Param("id") id: string, @CurrentUser() u: any) {
+    return this.svc.delete(id, u.sub, u.role);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
   @Roles(Role.ADMIN)
-  @RequirePermission("tournaments", "approve")
+  @RequirePermission("tournaments", "write")
   @Post(":id/winners")
   winners(
     @Param("id") id: string,
@@ -182,7 +206,8 @@ export class TournamentsController {
         gotBooyah?: boolean;
       }[];
     },
+    @CurrentUser() u: any,
   ) {
-    return this.svc.declareWinners(id, body.winners);
+    return this.svc.declareWinners(id, body.winners, u.sub, u.role);
   }
 }

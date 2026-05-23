@@ -361,6 +361,7 @@ model User {
   teams         TeamMember[]
   teamsOwned    Team[] @relation("TeamCaptain")
   tournamentsCreated Tournament[] @relation("TournamentCreator")
+  tournamentsAssigned Tournament[] @relation("TournamentAssignedAdmin")
   freeDailySlots FreeDailySlot[]
   roleId         String?
   roleRef        UserRole? @relation(fields: [roleId], references: [id])
@@ -558,6 +559,8 @@ model Tournament {
   isAdminCreated Boolean          @default(true)
   createdById    String?
   createdBy      User?            @relation("TournamentCreator", fields: [createdById], references: [id])
+  assignedAdminId String?
+  assignedAdmin   User?           @relation("TournamentAssignedAdmin", fields: [assignedAdminId], references: [id], onDelete: SetNull)
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 
@@ -573,6 +576,7 @@ model Tournament {
   @@index([type, dateTime])
   @@index([status, liveStartedAt])
   @@index([createdById, createdAt])
+  @@index([assignedAdminId, status])
 }
 
 model TournamentParticipant {
@@ -1019,4 +1023,3 @@ model ClientLog {
   @@index([event])
   @@index([createdAt])
 }
-

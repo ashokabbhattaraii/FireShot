@@ -104,6 +104,8 @@ const TOURNAMENT_DETAIL_SELECT = {
     select: {
       id: true,
       userId: true,
+      teamId: true,
+      submittedPlayerUids: true,
       paid: true,
       joinedAt: true,
       placement: true,
@@ -117,6 +119,7 @@ const TOURNAMENT_DETAIL_SELECT = {
         select: {
           id: true,
           slotIndex: true,
+          freefireUid: true,
           igName: true,
         },
         orderBy: { slotIndex: "asc" },
@@ -141,6 +144,13 @@ const TOURNAMENT_DETAIL_SELECT = {
     },
     orderBy: [{ verified: "desc" }, { placement: "asc" }, { kills: "desc" }, { createdAt: "asc" }],
   },
+} as const;
+
+const ADMIN_TOURNAMENT_LIST_SELECT = {
+  ...TOURNAMENT_LIST_SELECT,
+  createdById: true,
+  assignedAdminId: true,
+  assignedAdmin: { select: { id: true, name: true, email: true } },
 } as const;
 
 export interface RoomDetails {
@@ -248,6 +258,25 @@ export class TournamentsService implements OnModuleInit {
       TOURNAMENT_LIST_HARD_TTL_SECONDS,
       () => this.loadTournamentList(filters),
     );
+  }
+
+  async listAdmin(actorId: string, role: Role) {
+    const where = role === Role.SUPER_ADMIN
+      ? {}
+      : { OR: [{ assignedAdminId: actorId }, { createdById: actorId }] };
+    return this.prisma.tournament.findMany({
+      where,
+      select: ADMIN_TOURNAMENT_LIST_SELECT as any,
+      orderBy: [{ status: "asc" }, { dateTime: "asc" }],
+    });
+  }
+
+  async listAdminAssignees() {
+    return this.prisma.user.findMany({
+      where: { role: { in: [Role.ADMIN, Role.SUPER_ADMIN] } },
+      select: { id: true, name: true, email: true, role: true },
+      orderBy: [{ role: "desc" }, { createdAt: "desc" }],
+    });
   }
 
   private loadTournamentList(filters: {
@@ -512,7 +541,8 @@ export class TournamentsService implements OnModuleInit {
     };
   }
 
-  async setStatus(id: string, dto: UpdateTournamentStatusDto) {
+  async setStatus(id: string, dto: UpdateTournamentStatusDto, actorId?: string, role?: Role) {
+    if (actorId && role) await this.assertCanManage(id, actorId, role);
     if (dto.status === TournamentStatus.LIVE) {
       const existing = await this.prisma.tournament.findUnique({
         where: { id },
@@ -523,7 +553,7 @@ export class TournamentsService implements OnModuleInit {
         throw new BadRequestException("Publish Room ID and password before moving tournament to LIVE");
       }
     }
-    const updated = await this.prisma.tournament.update({
+    const updated: any = await this.prisma.tournament.update({
       where: { id },
       data: {
         status: dto.status,
@@ -532,10 +562,14 @@ export class TournamentsService implements OnModuleInit {
     });
     this.invalidateReadCaches(id);
     this.realtime.emitToTournament(id, "tournament_status_changed", { status: dto.status });
+    if ((updated as any).assignedAdminId && dto.status === TournamentStatus.PENDING_RESULTS) {
+      await this.notifyAssignedAdmin((updated as any).assignedAdminId, updated.id, updated.title, "Result update needed", "The match has ended. Publish the official scoreboard from Free Fire.");
+    }
     return updated;
   }
 
-  async publishRoom(id: string, dto: PublishRoomDto) {
+  async publishRoom(id: string, dto: PublishRoomDto, actorId?: string, role?: Role) {
+    if (actorId && role) await this.assertCanManage(id, actorId, role);
     const updated = await this.prisma.tournament.update({
       where: { id },
       data: {
@@ -688,12 +722,57 @@ export class TournamentsService implements OnModuleInit {
     }
   }
 
-  async delete(id: string) {
+  async delete(id: string, actorId?: string, role?: Role) {
+    if (actorId && role) await this.assertCanManage(id, actorId, role);
     const tournament = await this.prisma.tournament.findUnique({ where: { id } });
     if (!tournament) throw new NotFoundException("Tournament not found");
     await this.prisma.tournament.delete({ where: { id } });
     this.invalidateReadCaches(id);
     return { success: true };
+  }
+
+  async assignAdmin(tournamentId: string, actorId: string, adminId: string | null) {
+    const actor = await this.prisma.user.findUnique({
+      where: { id: actorId },
+      select: { role: true },
+    });
+    if (actor?.role !== Role.SUPER_ADMIN) {
+      throw new ForbiddenException("Only SUPER_ADMIN can assign tournament managers");
+    }
+    if (adminId) {
+      const admin = await this.prisma.user.findUnique({
+        where: { id: adminId },
+        select: { id: true, role: true },
+      });
+      if (!admin || (admin.role !== Role.ADMIN && admin.role !== Role.SUPER_ADMIN)) {
+        throw new BadRequestException("Assign a valid admin user");
+      }
+    }
+    const updated: any = await this.prisma.tournament.update({
+      where: { id: tournamentId },
+      data: { assignedAdminId: adminId },
+      select: ADMIN_TOURNAMENT_LIST_SELECT as any,
+    });
+    await this.prisma.adminActionLog.create({
+      data: {
+        adminId: actorId,
+        action: "tournament.assign_admin",
+        resource: "tournament",
+        resourceId: tournamentId,
+        newValue: { assignedAdminId: adminId },
+      },
+    });
+    if (adminId) {
+      await this.notifyAssignedAdmin(
+        adminId,
+        tournamentId,
+        updated.title,
+        "Tournament assigned",
+        `You are assigned to manage ${updated.title}. Publish room details, run the match, and publish official results.`,
+      );
+    }
+    this.invalidateReadCaches(tournamentId);
+    return updated;
   }
 
   async checkEligibility(userId: string, tournamentId: string) {
@@ -1025,7 +1104,43 @@ export class TournamentsService implements OnModuleInit {
       kills?: number;
       gotBooyah?: boolean;
     }[],
+    actorId?: string,
+    role?: Role,
   ) {
+    if (actorId && role) await this.assertCanManage(tournamentId, actorId, role);
+    const tournament = await this.prisma.tournament.findUnique({
+      where: { id: tournamentId },
+      select: {
+        mode: true,
+        type: true,
+        participants: { select: { userId: true } },
+      },
+    });
+    if (!tournament) throw new NotFoundException("Tournament not found");
+    const joinedUserIds = new Set(tournament.participants.map((p) => p.userId));
+    const submittedUserIds = new Set(winners.map((w) => w.userId));
+    for (const userId of joinedUserIds) {
+      if (!submittedUserIds.has(userId)) {
+        throw new BadRequestException("Publish results for every joined player/team, including zero-kill players.");
+      }
+    }
+    for (const winner of winners) {
+      if (!joinedUserIds.has(winner.userId)) throw new BadRequestException("Result contains a user who did not join this tournament.");
+      if (winner.kills === undefined || winner.kills === null || winner.kills < 0) {
+        throw new BadRequestException("Every result row must include kills. Use 0 when the player/team got no kills.");
+      }
+    }
+    if (tournament.type !== TournamentType.KILL_RACE) {
+      for (const winner of winners) {
+        if (!winner.placement || winner.placement < 1) {
+          throw new BadRequestException("Every result row must include final placement/rank.");
+        }
+      }
+    }
+    if (this.prizes.isWinnerTakesAllMode(tournament.mode, tournament.type)) {
+      const firstPlaceCount = winners.filter((w) => w.placement === 1 || w.gotBooyah).length;
+      if (firstPlaceCount !== 1) throw new BadRequestException("Winner takes all needs exactly one 1st place winner.");
+    }
     const results = winners.map((w) => ({
       userId: w.userId,
       placement: w.placement,
@@ -1040,6 +1155,39 @@ export class TournamentsService implements OnModuleInit {
       this.realtime.emitToUser(c.userId, "wallet_updated", {});
     }
     return out;
+  }
+
+  private async assertCanManage(tournamentId: string, actorId: string, role: Role) {
+    if (role === Role.SUPER_ADMIN) return;
+    const tournament = await this.prisma.tournament.findUnique({
+      where: { id: tournamentId },
+      select: { assignedAdminId: true, createdById: true },
+    });
+    if (!tournament) throw new NotFoundException("Tournament not found");
+    if (tournament.assignedAdminId === actorId || tournament.createdById === actorId) return;
+    throw new ForbiddenException("This tournament is assigned to another admin");
+  }
+
+  private async notifyAssignedAdmin(
+    adminId: string,
+    tournamentId: string,
+    title: string,
+    notificationTitle: string,
+    body: string,
+  ) {
+    await this.prisma.notification.create({
+      data: {
+        userId: adminId,
+        type: "TOURNAMENT",
+        title: notificationTitle,
+        body,
+      },
+    });
+    this.realtime.emitToUser(adminId, "notification_new", {
+      title: notificationTitle,
+      body,
+      data: { route: "/admin/tournaments", tournamentId, tournamentTitle: title },
+    });
   }
 
   private validateFeePlan(dto: CreateTournamentDto) {

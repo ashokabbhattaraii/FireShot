@@ -168,3 +168,72 @@ export function TableLoading({
     </div>
   );
 }
+
+export function ConfirmDialog({
+  open,
+  title,
+  description,
+  confirmLabel = "Confirm",
+  cancelLabel = "Cancel",
+  tone = "danger",
+  loading,
+  onConfirm,
+  onCancel,
+}: {
+  open: boolean;
+  title: string;
+  description?: ReactNode;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  tone?: "danger" | "primary";
+  loading?: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center px-4 py-6">
+      <button
+        type="button"
+        aria-label="Close confirmation"
+        className="absolute inset-0 bg-black/70"
+        onClick={onCancel}
+      />
+      <div className="relative z-10 w-full max-w-lg overflow-hidden rounded-2xl border border-border bg-[#0b0a12] text-white shadow-2xl">
+        <div className={`h-1 w-full ${tone === "danger" ? "bg-red-500" : "bg-neon"}`} />
+        <div className="p-5 sm:p-6">
+          <div className="flex items-start gap-3">
+            <div
+              className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border text-sm font-semibold ${tone === "danger" ? "border-red-500/30 bg-red-500/10 text-red-200" : "border-neon/30 bg-neon/10 text-neon"}`}
+            >
+              !
+            </div>
+            <div className="min-w-0 flex-1">
+              <h2 className="font-display text-lg font-semibold leading-tight">{title}</h2>
+              {description && (
+                <div className="mt-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm leading-6 text-white/70">
+                  {description}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <button type="button" className="btn-outline text-sm sm:min-w-28" onClick={onCancel} disabled={loading}>
+              {cancelLabel}
+            </button>
+            <button
+              type="button"
+              className={`${tone === "danger" ? "btn-danger" : "btn-primary"} text-sm sm:min-w-32`}
+              onClick={onConfirm}
+              disabled={loading}
+            >
+              <ButtonLoading loading={loading} loadingText="Working...">
+                {confirmLabel}
+              </ButtonLoading>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

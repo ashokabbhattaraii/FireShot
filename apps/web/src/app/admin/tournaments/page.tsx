@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef, type ReactNode } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { api, FILE_BASE } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
 import {
   GameModeLabels,
   GameModes,
@@ -14,7 +16,7 @@ import {
   TournamentTypeLabels,
 } from "@fireslot/shared";
 import { fmtDate, npr } from "@/lib/utils";
-import { ButtonLoading, CardSkeleton, EmptyState, PageHeader, StatusBadge } from "@/components/ui";
+import { ButtonLoading, CardSkeleton, ConfirmDialog, EmptyState, PageHeader, StatusBadge } from "@/components/ui";
 
 const BANNED_GUNS = ["Double Vector", "M79", "Grenade Launcher", "Rocket Launcher"];
 
@@ -39,7 +41,9 @@ const initialForm = {
 };
 
 export default function AdminTournaments() {
+  const { user } = useAuth();
   const [items, setItems] = useState<any[]>([]);
+  const [assignees, setAssignees] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<any>(initialForm);
   const [msg, setMsg] = useState<string | null>(null);
@@ -58,16 +62,31 @@ export default function AdminTournaments() {
   const [roomDrafts, setRoomDrafts] = useState<Record<string, { roomId: string; roomPassword: string }>>({});
   const [resultParticipants, setResultParticipants] = useState<any[]>([]);
   const [manualResultDrafts, setManualResultDrafts] = useState<Record<string, { placement: string; kills: string }>>({});
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [modeFilter, setModeFilter] = useState("ALL");
+  const [pageSize, setPageSize] = useState(6);
+  const [page, setPage] = useState(1);
+  const [confirmAction, setConfirmAction] = useState<null | {
+    title: string;
+    description?: ReactNode;
+    confirmLabel: string;
+    tone?: "danger" | "primary";
+    run: () => Promise<void> | void;
+  }>(null);
 
   async function load(showLoading = true) {
     if (showLoading) setLoading(true);
     try {
-      setItems(await api("/tournaments"));
+      setItems(await api("/tournaments/admin/list"));
     } finally {
       if (showLoading) setLoading(false);
     }
   }
-  useEffect(() => { load().catch(() => {}); }, []);
+  useEffect(() => {
+    load().catch(() => {});
+    api("/tournaments/admin/assignees").then(setAssignees).catch(() => setAssignees([]));
+  }, []);
 
   // Live pricing preview
   useEffect(() => {
@@ -127,10 +146,12 @@ export default function AdminTournaments() {
 
   async function publishRoom(id: string, room?: { roomId?: string; roomPassword?: string }) {
     const draft = room ?? roomDrafts[id];
-    const roomId = draft?.roomId?.trim() || prompt("Room ID?")?.trim();
-    if (!roomId) return;
-    const roomPassword = draft?.roomPassword?.trim() || prompt("Room password?")?.trim();
-    if (!roomPassword) return;
+    const roomId = draft?.roomId?.trim();
+    const roomPassword = draft?.roomPassword?.trim();
+    if (!roomId || !roomPassword) {
+      setMsg("Enter both Room ID and Room password before publishing.");
+      return;
+    }
     setMsg(null);
     setActionKey(`${id}:room`);
     try {
@@ -148,7 +169,6 @@ export default function AdminTournaments() {
   }
 
   async function lockRoom(id: string) {
-    if (!confirm("Lock room and finalize prizes? This sets actualPlayers and recomputes Per Kill / Booyah.")) return;
     setActionKey(`${id}:lock`);
     try {
       await api(`/tournaments/${id}/lock-room`, { method: "POST" });
@@ -161,13 +181,36 @@ export default function AdminTournaments() {
   }
 
   async function deleteTournament(id: string) {
-    if (!confirm("Are you sure you want to delete this tournament? This action cannot be undone.")) return;
-    setActionKey(`${id}:delete`);
+    setConfirmAction({
+      title: "Delete tournament?",
+      description: "This permanently removes the tournament and cannot be undone.",
+      confirmLabel: "Delete",
+      tone: "danger",
+      run: async () => {
+        setActionKey(`${id}:delete`);
+        try {
+          await api(`/tournaments/${id}`, { method: "DELETE" });
+          await load(false);
+        } catch (e: any) {
+          setMsg(e.message ?? "Could not delete tournament");
+        } finally {
+          setActionKey(null);
+        }
+      },
+    });
+  }
+
+  async function assignAdmin(tournamentId: string, adminId: string) {
+    setActionKey(`${tournamentId}:assign`);
+    setMsg(null);
     try {
-      await api(`/tournaments/${id}`, { method: "DELETE" });
+      await api(`/tournaments/${tournamentId}/assign-admin`, {
+        method: "PUT",
+        body: JSON.stringify({ adminId: adminId || null }),
+      });
       await load(false);
     } catch (e: any) {
-      alert(e.message);
+      setMsg(e.message ?? "Only super admin can assign tournament managers");
     } finally {
       setActionKey(null);
     }
@@ -205,7 +248,7 @@ export default function AdminTournaments() {
         return next;
       });
     } catch (e) {
-      alert("Failed to load results");
+      setMsg("Failed to load results");
     } finally {
       setModalLoading(false);
     }
@@ -213,6 +256,39 @@ export default function AdminTournaments() {
 
   async function publishManualResults() {
     if (!modalTournament) return;
+    if (resultParticipants.length === 0) {
+      setMsg("No joined players found. Players must join before you can publish the tournament result.");
+      return;
+    }
+    const missingKills = resultParticipants.filter((participant) => {
+      const draft = manualResultDrafts[participant.userId] ?? { placement: "", kills: "" };
+      return draft.kills.trim() === "";
+    });
+    if (missingKills.length > 0) {
+      setMsg("Enter kills for every joined player/team. Use 0 when they got no kills.");
+      return;
+    }
+    const needsPlacement = !modalIsKillRace;
+    const missingPlacement = needsPlacement
+      ? resultParticipants.filter((participant) => {
+          const draft = manualResultDrafts[participant.userId] ?? { placement: "", kills: "" };
+          return draft.placement.trim() === "";
+        })
+      : [];
+    if (missingPlacement.length > 0) {
+      setMsg("Enter final placement/rank for every joined player/team before publishing.");
+      return;
+    }
+    if (modalIsWTA) {
+      const winnerCount = resultParticipants.filter((participant) => {
+        const draft = manualResultDrafts[participant.userId] ?? { placement: "", kills: "" };
+        return Number(draft.placement) === 1;
+      }).length;
+      if (winnerCount !== 1) {
+        setMsg("Winner takes all needs exactly one 1st place winner.");
+        return;
+      }
+    }
     const winners = resultParticipants
       .map((participant) => {
         const draft = manualResultDrafts[participant.userId] ?? { placement: "", kills: "" };
@@ -223,12 +299,31 @@ export default function AdminTournaments() {
           gotBooyah: draft.placement === "1",
         };
       })
-      .filter((row) => row.placement !== undefined || row.kills > 0);
+      .sort((a, b) => {
+        const placeA = a.placement ?? Number.MAX_SAFE_INTEGER;
+        const placeB = b.placement ?? Number.MAX_SAFE_INTEGER;
+        if (placeA !== placeB) return placeA - placeB;
+        return b.kills - a.kills;
+      });
     if (winners.length === 0) {
-      alert("Add at least one player's final placement or kill count before publishing results.");
+      setMsg("Add the official scoreboard before publishing results.");
       return;
     }
-    if (!confirm("Publish these results and credit prizes?")) return;
+    setConfirmAction({
+      title: "Publish tournament results?",
+      description: (
+        <>
+          This will publish the official ranking/kills, credit prizes, and mark the tournament completed.
+        </>
+      ),
+      confirmLabel: "Publish Results",
+      tone: "primary",
+      run: () => publishManualResultsNow(winners),
+    });
+  }
+
+  async function publishManualResultsNow(winners: { userId: string; placement?: number; kills: number; gotBooyah: boolean }[]) {
+    if (!modalTournament) return;
     setActionKey(`${modalTournament.id}:manual-results`);
     try {
       await api(`/tournaments/${modalTournament.id}/winners`, {
@@ -238,7 +333,7 @@ export default function AdminTournaments() {
       setResultsModalOpen(false);
       await load(false);
     } catch (e: any) {
-      alert(e.message ?? "Could not publish results");
+      setMsg(e.message ?? "Could not publish results");
     } finally {
       setActionKey(null);
     }
@@ -260,7 +355,7 @@ export default function AdminTournaments() {
       const updated = await api(`/results/${id}`);
       setResultsItems((prev) => prev.map((r) => (r.id === id ? updated : r)));
     } catch (e: any) {
-      alert(e.message || "Failed to save");
+      setMsg(e.message || "Failed to save");
     } finally {
       setSavingId(null);
     }
@@ -273,7 +368,7 @@ export default function AdminTournaments() {
       setResultsItems((prev) => prev.filter((r) => r.id !== id));
       setDrafts((prev) => { const next = { ...prev }; delete next[id]; return next; });
     } catch (e: any) {
-      alert(e.message || "Failed to verify");
+      setMsg(e.message || "Failed to verify");
     } finally {
       setVerifyingId(null);
     }
@@ -291,7 +386,16 @@ export default function AdminTournaments() {
   }
 
   async function verifyAll() {
-    if (!confirm("Verify ALL results for this tournament? This action cannot be undone.")) return;
+    setConfirmAction({
+      title: "Verify all legacy results?",
+      description: "This verifies all legacy player-submitted result rows for this tournament.",
+      confirmLabel: "Verify All",
+      tone: "primary",
+      run: verifyAllNow,
+    });
+  }
+
+  async function verifyAllNow() {
     for (const r of [...resultsItems]) {
       try {
         await verifyResult(r.id);
@@ -339,6 +443,60 @@ export default function AdminTournaments() {
     });
   }, [form.entryFeeNpr, form.maxSlots, form.type]);
   const prizePreview = localPreview ?? preview;
+  const modalIsWTA = !!modalTournament && (
+    modalTournament.type === "SOLO_1ST" ||
+    isWinnerTakesAllOnly(modalTournament.mode ?? "")
+  );
+  const modalIsKillRace = modalTournament?.type === "KILL_RACE";
+  const modalIsTeamMode = !!modalTournament && (
+    modalTournament.mode === "CS_4V4" ||
+    modalTournament.mode === "LW_2V2" ||
+    modalTournament.mode === "BR_DUO" ||
+    modalTournament.mode === "BR_SQUAD"
+  );
+  const modalResultTitle = modalIsWTA
+    ? "Winner takes all result"
+    : modalTournament?.type === "KILL_RACE"
+      ? "Kill race result"
+      : modalTournament?.type === "COMBO"
+        ? "Placement + kills result"
+        : "Placement result";
+  const filteredItems = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return items.filter((t) => {
+      const matchesSearch = !query || [
+        t.title,
+        t.description,
+        t.mode,
+        t.status,
+        t.map,
+        t.assignedAdmin?.name,
+        t.assignedAdmin?.email,
+      ]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(query));
+      const matchesStatus = statusFilter === "ALL" || t.status === statusFilter;
+      const matchesMode = modeFilter === "ALL" || t.mode === modeFilter;
+      return matchesSearch && matchesStatus && matchesMode;
+    });
+  }, [items, modeFilter, search, statusFilter]);
+  const totalItems = filteredItems.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const pagedItems = useMemo(() => {
+    const start = (safePage - 1) * pageSize;
+    return filteredItems.slice(start, start + pageSize);
+  }, [filteredItems, pageSize, safePage]);
+  const pageStart = totalItems === 0 ? 0 : (safePage - 1) * pageSize + 1;
+  const pageEnd = Math.min(totalItems, safePage * pageSize);
+
+  useEffect(() => {
+    if (page !== safePage) setPage(safePage);
+  }, [page, safePage]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [pageSize, search, statusFilter, modeFilter]);
 
   return (
     <div>
@@ -352,6 +510,70 @@ export default function AdminTournaments() {
           </button>
         }
       />
+
+      <div className="mb-4 grid gap-3 rounded-xl border border-border bg-card/80 p-3 lg:grid-cols-[1.6fr_1fr_1fr_auto]">
+        <label className="block">
+          <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.18em] text-white/45">Search tournaments</span>
+          <input
+            className="input"
+            placeholder="Title, mode, map, manager, status"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.18em] text-white/45">Status</span>
+          <select className="input" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <option value="ALL">All statuses</option>
+            <option value="UPCOMING">UPCOMING</option>
+            <option value="LIVE">LIVE</option>
+            <option value="PENDING_RESULTS">PENDING_RESULTS</option>
+            <option value="COMPLETED">COMPLETED</option>
+            <option value="CANCELLED">CANCELLED</option>
+          </select>
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.18em] text-white/45">Mode</span>
+          <select className="input" value={modeFilter} onChange={(e) => setModeFilter(e.target.value)}>
+            <option value="ALL">All modes</option>
+            {GameModes.map((mode) => (
+              <option key={mode} value={mode}>
+                {GameModeLabels[mode]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.18em] text-white/45">Per page</span>
+          <select className="input" value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))}>
+            {[6, 8, 12, 16].map((size) => (
+              <option key={size} value={size}>
+                {size}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface/70 px-4 py-3 text-sm text-white/65">
+        <div>
+          Showing <span className="font-semibold text-white">{pageStart}-{pageEnd}</span> of <span className="font-semibold text-white">{totalItems}</span> tournaments
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button type="button" className="btn-outline text-xs" onClick={() => { setSearch(""); setStatusFilter("ALL"); setModeFilter("ALL"); setPageSize(6); }}>
+            Reset filters
+          </button>
+          <button type="button" className="btn-outline text-xs" onClick={() => load(false)} disabled={loading}>
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      {msg && (
+        <div className="mb-4 rounded-lg border border-red-400/40 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-100">
+          {msg}
+        </div>
+      )}
 
       {open && (
         <form onSubmit={create} className="card mb-6 space-y-4">
@@ -582,7 +804,6 @@ export default function AdminTournaments() {
               Create Tournament
             </ButtonLoading>
           </button>
-          {msg && <p className="text-sm text-red-400">{msg}</p>}
         </form>
       )}
 
@@ -594,18 +815,46 @@ export default function AdminTournaments() {
         </div>
       ) : items.length === 0 ? (
         <EmptyState title="No tournaments yet" />
+      ) : filteredItems.length === 0 ? (
+        <EmptyState
+          title="No matching tournaments"
+          description="Clear a filter or widen the search to see more tournaments."
+        />
       ) : (
         <div className="space-y-3">
-          {items.map((t) => (
+          {pagedItems.map((t) => (
             <div key={t.id} className="card">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="label">{GameModeLabels[t.mode as keyof typeof GameModeLabels]}</p>
                   <h3 className="font-semibold text-white">{t.title}</h3>
                   <p className="mt-1 text-xs text-white/50">{fmtDate(t.dateTime)}</p>
+                  <p className="mt-1 text-[11px] text-white/45">
+                    Manager: {t.assignedAdmin?.name ?? t.assignedAdmin?.email ?? (t.createdById === user?.id ? "You" : "Unassigned")}
+                  </p>
                 </div>
                 <StatusBadge status={t.status} />
               </div>
+              {user?.role === "SUPER_ADMIN" && (
+                <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
+                  <select
+                    className="input text-xs"
+                    value={t.assignedAdminId ?? ""}
+                    onChange={(e) => assignAdmin(t.id, e.target.value)}
+                    disabled={actionKey === `${t.id}:assign`}
+                  >
+                    <option value="">Unassigned: super admin manages</option>
+                    {assignees.map((admin) => (
+                      <option key={admin.id} value={admin.id}>
+                        {admin.name ?? admin.email} ({admin.role})
+                      </option>
+                    ))}
+                  </select>
+                  <span className="rounded-lg border border-neon/30 bg-neon/10 px-3 py-2 text-[11px] font-semibold text-neon">
+                    Assign Manager
+                  </span>
+                </div>
+              )}
               <div className="mt-4 grid grid-cols-4 gap-2 text-xs">
                 <Mini label="Fee" value={npr(t.entryFeeNpr)} />
                 <Mini
@@ -754,6 +1003,31 @@ export default function AdminTournaments() {
               </div>
             </div>
           ))}
+          {totalItems > pageSize && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card/80 px-4 py-3">
+              <p className="text-xs text-white/55">
+                Page <span className="font-semibold text-white">{safePage}</span> of <span className="font-semibold text-white">{totalPages}</span>
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="btn-outline text-xs"
+                  onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+                  disabled={safePage <= 1}
+                >
+                  Previous
+                </button>
+                <button
+                  type="button"
+                  className="btn-outline text-xs"
+                  onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={safePage >= totalPages}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -774,9 +1048,13 @@ export default function AdminTournaments() {
               <div className="rounded-lg border border-neon/30 bg-neon/5 p-3">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-sm font-semibold text-white">Manual result publish</p>
+                    <p className="text-sm font-semibold text-white">{modalResultTitle}</p>
                     <p className="mt-1 text-xs text-white/50">
-                      Tournaments are admin managed. Enter placement and kills from the match, then publish to credit prizes.
+                      {modalIsWTA
+                        ? "Enter every final rank and kill count. The 1st place player/team receives the full winner prize."
+                        : modalIsKillRace
+                          ? "Enter kills for every joined player/team. Use 0 when they got no kills."
+                        : "Enter the official final placement and kills from the match."}
                     </p>
                   </div>
                   <button
@@ -793,33 +1071,67 @@ export default function AdminTournaments() {
                   {resultParticipants.length === 0 ? (
                     <p className="text-xs text-white/50">No joined players found. Players must join before you can publish the tournament result.</p>
                   ) : (
-                    resultParticipants.map((participant) => {
+                    resultParticipants.map((participant, index) => {
                       const ign = participant.user?.profile?.ign ?? "Player";
                       const teamNames = participant.teamMembers?.map((member: any) => member.igName).filter(Boolean) ?? [];
+                      const rosterUids = participant.submittedPlayerUids?.length
+                        ? participant.submittedPlayerUids
+                        : participant.teamMembers?.map((member: any) => member.freefireUid).filter(Boolean) ?? [];
                       const draft = manualResultDrafts[participant.userId] ?? { placement: "", kills: "" };
+                      const isWinner = draft.placement === "1";
                       return (
-                        <div key={participant.id} className="grid grid-cols-[1fr_90px_90px] items-center gap-2 rounded-md border border-border bg-black/20 p-2">
+                        <div key={participant.id} className="rounded-md border border-border bg-black/20 p-2">
+                          <div className={`grid items-center gap-2 ${modalIsWTA ? "grid-cols-[1fr_96px_90px_90px]" : modalIsKillRace ? "grid-cols-[1fr_90px]" : "grid-cols-[1fr_90px_90px]"}`}>
                           <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-white">{ign}</p>
+                            <p className="truncate text-sm font-semibold text-white">
+                              {modalIsTeamMode ? `Team ${index + 1}` : ign}
+                            </p>
                             {teamNames.length > 0 && (
                               <p className="truncate text-[10px] text-white/45">Team: {teamNames.join(", ")}</p>
                             )}
+                            {modalIsTeamMode && teamNames.length === 0 && (
+                              <p className="truncate text-[10px] text-white/45">Captain: {ign}</p>
+                            )}
                           </div>
-                          <input
-                            className="input text-sm"
-                            placeholder="Place"
-                            inputMode="numeric"
-                            value={draft.placement}
-                            onChange={(e) =>
-                              setManualResultDrafts((prev) => ({
-                                ...prev,
-                                [participant.userId]: {
-                                  ...(prev[participant.userId] ?? { placement: "", kills: "" }),
-                                  placement: e.target.value.replace(/\D/g, ""),
-                                },
-                              }))
-                            }
-                          />
+                          {modalIsWTA ? (
+                            <button
+                              type="button"
+                              className={`${isWinner ? "btn-primary" : "btn-outline"} text-xs`}
+                              onClick={() =>
+                                setManualResultDrafts((prev) => {
+                                  const next = { ...prev };
+                                  for (const p of resultParticipants) {
+                                    next[p.userId] = {
+                                      ...(next[p.userId] ?? { placement: "", kills: "" }),
+                                      placement: p.userId === participant.userId ? "1" : next[p.userId]?.placement === "1" ? "" : (next[p.userId]?.placement ?? ""),
+                                    };
+                                  }
+                                  return next;
+                                })
+                              }
+                            >
+                              {isWinner ? "Winner" : "Set Winner"}
+                            </button>
+                          ) : (
+                            null
+                          )}
+                          {!modalIsKillRace && (
+                            <input
+                              className="input text-sm"
+                              placeholder="Rank"
+                              inputMode="numeric"
+                              value={draft.placement}
+                              onChange={(e) =>
+                                setManualResultDrafts((prev) => ({
+                                  ...prev,
+                                  [participant.userId]: {
+                                    ...(prev[participant.userId] ?? { placement: "", kills: "" }),
+                                    placement: e.target.value.replace(/\D/g, ""),
+                                  },
+                                }))
+                              }
+                            />
+                          )}
                           <input
                             className="input text-sm"
                             placeholder="Kills"
@@ -835,6 +1147,31 @@ export default function AdminTournaments() {
                               }))
                             }
                           />
+                          </div>
+                          {modalIsTeamMode && rosterUids.length > 0 && (
+                            <div className="mt-2 overflow-hidden rounded border border-border">
+                              <table className="w-full text-left text-[11px]">
+                                <thead className="bg-white/5 text-white/45">
+                                  <tr>
+                                    <th className="px-2 py-1 font-semibold">Slot</th>
+                                    <th className="px-2 py-1 font-semibold">Player UID</th>
+                                    <th className="px-2 py-1 font-semibold">IGN</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {rosterUids.map((uid: string, slotIndex: number) => (
+                                    <tr key={`${participant.id}:${uid}`} className="border-t border-border">
+                                      <td className="px-2 py-1 text-white/50">#{slotIndex + 1}</td>
+                                      <td className="px-2 py-1 font-mono text-white">{uid}</td>
+                                      <td className="px-2 py-1 text-white/70">
+                                        {participant.teamMembers?.find((member: any) => member.freefireUid === uid)?.igName ?? (slotIndex === 0 ? ign : "Roster player")}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
                         </div>
                       );
                     })
@@ -855,7 +1192,15 @@ export default function AdminTournaments() {
                           {r.submitter?.profile?.ign ?? r.submitter?.email ?? r.id}
                         </p>
                         {r.screenshotUrl && (
-                          <img src={`${FILE_BASE}${r.screenshotUrl}`} alt="screenshot" className="mt-2 rounded max-h-32 border border-border" />
+                          <Image
+                            src={`${FILE_BASE}${r.screenshotUrl}`}
+                            alt="screenshot"
+                            width={640}
+                            height={360}
+                            unoptimized
+                            className="mt-2 h-auto max-h-32 rounded border border-border object-cover"
+                            sizes="(max-width: 768px) 100vw, 640px"
+                          />
                         )}
                         <div className="mt-2 grid grid-cols-3 gap-2">
                           <input className="input text-sm" placeholder="Placement" value={drafts[r.id]?.placement ?? ""} onChange={(e) => { setDrafts((p) => ({ ...p, [r.id]: { ...(p[r.id] || { placement: "", kills: "", note: "" }), placement: e.target.value } })); scheduleAutoSave(r.id); }} />
@@ -879,6 +1224,21 @@ export default function AdminTournaments() {
           </div>
         </div>
       )}
+      <ConfirmDialog
+        open={!!confirmAction}
+        title={confirmAction?.title ?? ""}
+        description={confirmAction?.description}
+        confirmLabel={confirmAction?.confirmLabel ?? "Confirm"}
+        tone={confirmAction?.tone ?? "danger"}
+        loading={!!actionKey}
+        onCancel={() => setConfirmAction(null)}
+        onConfirm={async () => {
+          const action = confirmAction;
+          if (!action) return;
+          await action.run();
+          setConfirmAction(null);
+        }}
+      />
     </div>
   );
 }

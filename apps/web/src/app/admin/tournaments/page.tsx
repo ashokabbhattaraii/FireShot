@@ -47,6 +47,17 @@ export default function AdminTournaments() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<any>(initialForm);
   const [msg, setMsg] = useState<string | null>(null);
+  const [dummyMode, setDummyMode] = useState(false);
+  const [dummyRanges, setDummyRanges] = useState<any>({
+    liveMin: 5,
+    liveMax: 50,
+    usersMin: 1000,
+    usersMax: 5000,
+    downloadsMin: 10000,
+    downloadsMax: 50000,
+  });
+  const [adminStats, setAdminStats] = useState<any | null>(null);
+  const [publicStats, setPublicStats] = useState<any | null>(null);
   const [preview, setPreview] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -79,6 +90,27 @@ export default function AdminTournaments() {
     if (showLoading) setLoading(true);
     try {
       setItems(await api("/tournaments/admin/list"));
+      // load dummy config and admin/public stats (best-effort)
+      try {
+        const cfg = await api("/admin/config");
+        const flat: Record<string, any> = {};
+        for (const cat of Object.keys(cfg)) {
+          for (const c of cfg[cat]) flat[c.key] = c.value;
+        }
+        setDummyMode(String(flat.DUMMY_DATA_MODE ?? "false").toLowerCase() === "true");
+        setDummyRanges({
+          liveMin: Number(flat.DUMMY_LIVE_PLAYERS_MIN ?? 5),
+          liveMax: Number(flat.DUMMY_LIVE_PLAYERS_MAX ?? 50),
+          usersMin: Number(flat.DUMMY_USER_COUNT_MIN ?? 1000),
+          usersMax: Number(flat.DUMMY_USER_COUNT_MAX ?? 5000),
+          downloadsMin: Number(flat.DUMMY_DOWNLOADS_MIN ?? 10000),
+          downloadsMax: Number(flat.DUMMY_DOWNLOADS_MAX ?? 50000),
+        });
+      } catch (e) {
+        // ignore
+      }
+      try { setAdminStats(await api("/admin/stats")); } catch (e) { setAdminStats(null); }
+      try { setPublicStats(await api("/app/stats")); } catch (e) { setPublicStats(null); }
     } finally {
       if (showLoading) setLoading(false);
     }
@@ -213,6 +245,15 @@ export default function AdminTournaments() {
       setMsg(e.message ?? "Only super admin can assign tournament managers");
     } finally {
       setActionKey(null);
+    }
+  }
+
+  async function toggleDummyMode() {
+    try {
+      await api(`/admin/config/DUMMY_DATA_MODE`, { method: "PUT", body: JSON.stringify({ value: String(!dummyMode) }) });
+      setDummyMode((d) => !d);
+    } catch (e: any) {
+      setMsg(e.message ?? "Could not toggle dummy mode");
     }
   }
 
@@ -480,13 +521,32 @@ export default function AdminTournaments() {
       return matchesSearch && matchesStatus && matchesMode;
     });
   }, [items, modeFilter, search, statusFilter]);
+
+  // Order tournaments for admin: LIVE first, then UPCOMING, then others, COMPLETED last
+  const orderedFilteredItems = useMemo(() => {
+    const statusOrder: Record<string, number> = {
+      LIVE: 0,
+      UPCOMING: 1,
+      PENDING_RESULTS: 2,
+      CANCELLED: 2,
+      COMPLETED: 3,
+    };
+    return [...filteredItems].sort((a, b) => {
+      const sa = statusOrder[a.status] ?? 2;
+      const sb = statusOrder[b.status] ?? 2;
+      if (sa !== sb) return sa - sb;
+      const ta = new Date(a.dateTime ?? a.createdAt ?? 0).getTime();
+      const tb = new Date(b.dateTime ?? b.createdAt ?? 0).getTime();
+      return ta - tb;
+    });
+  }, [filteredItems]);
   const totalItems = filteredItems.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
   const safePage = Math.min(page, totalPages);
   const pagedItems = useMemo(() => {
     const start = (safePage - 1) * pageSize;
-    return filteredItems.slice(start, start + pageSize);
-  }, [filteredItems, pageSize, safePage]);
+    return orderedFilteredItems.slice(start, start + pageSize);
+  }, [orderedFilteredItems, pageSize, safePage]);
   const pageStart = totalItems === 0 ? 0 : (safePage - 1) * pageSize + 1;
   const pageEnd = Math.min(totalItems, safePage * pageSize);
 
@@ -497,6 +557,17 @@ export default function AdminTournaments() {
   useEffect(() => {
     setPage(1);
   }, [pageSize, search, statusFilter, modeFilter]);
+
+  function seedHash(s: string) {
+    let h = 2166136261 >>> 0;
+    for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619) >>> 0;
+    return h >>> 0;
+  }
+  function seededInt(id: string, min: number, max: number) {
+    const h = seedHash(id);
+    const r = h / 0xffffffff;
+    return Math.floor(min + r * (max - min + 1));
+  }
 
   return (
     <div>
@@ -556,8 +627,10 @@ export default function AdminTournaments() {
       </div>
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface/70 px-4 py-3 text-sm text-white/65">
-        <div>
-          Showing <span className="font-semibold text-white">{pageStart}-{pageEnd}</span> of <span className="font-semibold text-white">{totalItems}</span> tournaments
+        <div className="flex items-center gap-4">
+          <div>Users: <span className="font-semibold text-white">{dummyMode ? seededInt("users", dummyRanges.usersMin, dummyRanges.usersMax) : adminStats?.users ?? "-"}</span></div>
+          <div>Downloads: <span className="font-semibold text-white">{dummyMode ? seededInt("downloads", dummyRanges.downloadsMin, dummyRanges.downloadsMax) : publicStats?.totalDownloads ?? "-"}</span></div>
+          <div className="text-xs text-white/60">Tournaments: <span className="font-semibold text-white">{totalItems}</span></div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button type="button" className="btn-outline text-xs" onClick={() => { setSearch(""); setStatusFilter("ALL"); setModeFilter("ALL"); setPageSize(6); }}>
@@ -565,6 +638,9 @@ export default function AdminTournaments() {
           </button>
           <button type="button" className="btn-outline text-xs" onClick={() => load(false)} disabled={loading}>
             Refresh
+          </button>
+          <button type="button" className={`btn-outline text-xs ${dummyMode ? "bg-neon/10 border-neon/30" : ""}`} onClick={() => toggleDummyMode()}>
+            {dummyMode ? "Dummy: ON" : "Dummy: OFF"}
           </button>
         </div>
       </div>
@@ -822,7 +898,9 @@ export default function AdminTournaments() {
         />
       ) : (
         <div className="space-y-3">
-          {pagedItems.map((t) => (
+          {pagedItems.map((t) => {
+            const displayedPlayers = dummyMode ? seededInt(t.id, dummyRanges.liveMin, dummyRanges.liveMax) : (t.participants?.length ?? t.actualPlayers ?? t.filledSlots ?? 0);
+            return (
             <div key={t.id} className="card">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -876,8 +954,8 @@ export default function AdminTournaments() {
                 <Mini
                   label={GameModeTeamSize[t.mode as keyof typeof GameModeTeamSize] > 1 ? "Teams" : "Players"}
                   value={GameModeTeamSize[t.mode as keyof typeof GameModeTeamSize] > 1
-                    ? `${Math.floor(t.filledSlots / GameModeTeamSize[t.mode as keyof typeof GameModeTeamSize])}/${t.maxTeams || Math.floor(t.maxSlots / GameModeTeamSize[t.mode as keyof typeof GameModeTeamSize])}`
-                    : `${t.filledSlots}/${t.maxSlots}`
+                    ? `${Math.floor(displayedPlayers / GameModeTeamSize[t.mode as keyof typeof GameModeTeamSize])}/${t.maxTeams || Math.floor(t.maxSlots / GameModeTeamSize[t.mode as keyof typeof GameModeTeamSize])}`
+                    : `${displayedPlayers}/${t.maxSlots}`
                   }
                 />
               </div>
@@ -1002,7 +1080,8 @@ export default function AdminTournaments() {
                 </select>
               </div>
             </div>
-          ))}
+            );
+          })}
           {totalItems > pageSize && (
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card/80 px-4 py-3">
               <p className="text-xs text-white/55">

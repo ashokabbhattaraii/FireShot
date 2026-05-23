@@ -19,11 +19,12 @@ import { JwtAuthGuard } from "../../common/guards/jwt.guard";
 import { PermissionsGuard, RequirePermission } from "../../common/guards/permissions.guard";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { StorageService } from "../../common/storage/storage.service";
+import { SystemConfigService } from "../admin/system-config.service";
 import { AppReleasesService } from "./app-releases.service";
 
 @Controller("app")
 export class PublicAppReleasesController {
-  constructor(private svc: AppReleasesService) {}
+  constructor(private svc: AppReleasesService, private config: SystemConfigService) {}
 
   @Get("latest-release")
   latest() {
@@ -38,6 +39,26 @@ export class PublicAppReleasesController {
   @Get("config")
   config(@Req() req: any) {
     return this.svc.getPublicConfig(req);
+  }
+
+  @Get("dummy-config")
+  async dummyConfig() {
+    try {
+      await this.config.ready();
+      return {
+        dummyMode: this.config.getBool("DUMMY_DATA_MODE"),
+        ranges: {
+          liveMin: this.config.getNumber("DUMMY_LIVE_PLAYERS_MIN"),
+          liveMax: this.config.getNumber("DUMMY_LIVE_PLAYERS_MAX"),
+          usersMin: this.config.getNumber("DUMMY_USER_COUNT_MIN"),
+          usersMax: this.config.getNumber("DUMMY_USER_COUNT_MAX"),
+          downloadsMin: this.config.getNumber("DUMMY_DOWNLOADS_MIN"),
+          downloadsMax: this.config.getNumber("DUMMY_DOWNLOADS_MAX"),
+        },
+      };
+    } catch (e) {
+      return { dummyMode: false, ranges: null };
+    }
   }
 
   @Post("ci/register-release")

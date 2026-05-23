@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
+import { useAuth } from "@/lib/auth-context";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
@@ -12,10 +13,15 @@ type Tab = "ONGOING" | "UPCOMING" | "RESULTS";
 
 export default function TournamentsListPage() {
   const [items, setItems] = useState<any[]>([]);
+  const [publicStats, setPublicStats] = useState<any | null>(null);
+  const [dummyMode, setDummyMode] = useState(false);
+  const [dummyRanges, setDummyRanges] = useState<any>({ liveMin: 0, liveMax: 100 });
+  const [tick, setTick] = useState<number>(0);
   const [tab, setTab] = useState<Tab>("UPCOMING");
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  const { user } = useAuth();
 
   useEffect(() => {
     setLoading(true);
@@ -24,15 +30,54 @@ export default function TournamentsListPage() {
       .then(setItems)
       .catch((e: any) => setErr(e.message ?? "Could not load matches"))
       .finally(() => setLoading(false));
+    // fetch public stats and dummy config
+    api("/app/stats").then((s) => setPublicStats(s)).catch(() => setPublicStats(null));
+    api("/app/dummy-config").then((c) => {
+      setDummyMode(!!c?.dummyMode);
+      if (c?.ranges) setDummyRanges(c.ranges);
+    }).catch(() => {});
   }, []);
 
   const filtered = useMemo(() => {
-    return items.filter((t) => {
-      if (tab === "ONGOING") return t.status === "LIVE" || t.status === "PENDING_RESULTS";
-      if (tab === "UPCOMING") return t.status === "UPCOMING";
-      return t.status === "COMPLETED";
-    });
-  }, [items, tab]);
+    // ONGOING: show LIVE only if the user has joined; otherwise fall back to UPCOMING ordered by time
+    if (tab === "ONGOING") {
+      const liveJoined = items.filter(
+        (t) => (t.status === "LIVE" || t.status === "PENDING_RESULTS") && !!t.participants?.some((p: any) => p.userId === user?.id)
+      );
+      if (liveJoined.length > 0) return liveJoined;
+      // fallback to upcoming ordered by datetime
+      return items
+        .filter((t) => t.status === "UPCOMING")
+        .sort((a, b) => new Date(a.dateTime ?? a.createdAt ?? 0).getTime() - new Date(b.dateTime ?? b.createdAt ?? 0).getTime());
+    }
+    if (tab === "UPCOMING") {
+      return items
+        .filter((t) => t.status === "UPCOMING")
+        .sort((a, b) => new Date(a.dateTime ?? a.createdAt ?? 0).getTime() - new Date(b.dateTime ?? b.createdAt ?? 0).getTime());
+    }
+    // RESULTS
+    return items.filter((t) => t.status === "COMPLETED");
+  }, [items, tab, user]);
+
+  // update tick every 2 minutes when dummy mode is active to refresh fake counts
+  useEffect(() => {
+    if (!dummyMode) return;
+    setTick((t) => t + 1);
+    const id = setInterval(() => setTick((t) => t + 1), 120_000);
+    return () => clearInterval(id);
+  }, [dummyMode]);
+
+  function seedHash(s: string) {
+    let h = 2166136261 >>> 0;
+    for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619) >>> 0;
+    return h >>> 0;
+  }
+  function seededIntForTick(id: string, min: number, max: number, tickVal: number) {
+    const key = `${id}:${tickVal}`;
+    const h = seedHash(key);
+    const r = h / 0xffffffff;
+    return Math.floor(min + r * (max - min + 1));
+  }
 
   return (
     <div className="space-y-4">
@@ -48,6 +93,11 @@ export default function TournamentsListPage() {
             {t}
           </button>
         ))}
+      </div>
+
+      <div className="mb-2 flex items-center gap-6 text-sm text-white/70">
+        <div>Users: <span className="font-semibold text-white">{publicStats?.activeUsers ?? "-"}{dummyMode ? ` (fake: ${seededIntForTick("users", dummyRanges.usersMin ?? 0, dummyRanges.usersMax ?? 100, tick)})` : ""}</span></div>
+        <div>Downloads: <span className="font-semibold text-white">{publicStats?.totalDownloads ?? "-"}{dummyMode ? ` (fake: ${seededIntForTick("downloads", dummyRanges.downloadsMin ?? 0, dummyRanges.downloadsMax ?? 100, tick)})` : ""}</span></div>
       </div>
 
       {loading ? (
@@ -87,7 +137,7 @@ function TournamentRow({
   t, expanded, toggle,
 }: { t: any; expanded: boolean; toggle: () => void }) {
   const router = useRouter();
-  const ps = t.prizeStructure ?? {};
+  const ps = useMemo(() => t.prizeStructure ?? {}, [t.prizeStructure]);
   const type = (t.type ?? "SOLO_1ST") as TournamentType;
   const isWTA = type === "SOLO_1ST" || isWinnerTakesAllOnly(t.mode ?? "");
   const isPlacementPrize = type === "SOLO_TOP3" || type === "SQUAD_TOP10";

@@ -114,6 +114,14 @@ export class SystemConfigService implements OnModuleInit {
     APP_API_URL: { value: "", type: "STRING", category: "FEATURE_FLAG", label: "Public API URL" },
     APP_PUBLIC_WEB_URL: { value: "", type: "STRING", category: "FEATURE_FLAG", label: "Public Web URL" },
     APP_DOWNLOAD_ENABLED: { value: "true", type: "BOOLEAN", category: "FEATURE_FLAG", label: "APK Download Enabled" },
+    // Dummy data configuration for admin preview / demo mode
+    DUMMY_DATA_MODE: { value: "false", type: "BOOLEAN", category: "FEATURE_FLAG", label: "Dummy Data Mode (show fake counts)" },
+    DUMMY_LIVE_PLAYERS_MIN: { value: "5", type: "NUMBER", category: "FEATURE_FLAG", label: "Dummy Live Players Min" },
+    DUMMY_LIVE_PLAYERS_MAX: { value: "50", type: "NUMBER", category: "FEATURE_FLAG", label: "Dummy Live Players Max" },
+    DUMMY_USER_COUNT_MIN: { value: "1000", type: "NUMBER", category: "FEATURE_FLAG", label: "Dummy Total Users Min" },
+    DUMMY_USER_COUNT_MAX: { value: "5000", type: "NUMBER", category: "FEATURE_FLAG", label: "Dummy Total Users Max" },
+    DUMMY_DOWNLOADS_MIN: { value: "10000", type: "NUMBER", category: "FEATURE_FLAG", label: "Dummy Downloads Min" },
+    DUMMY_DOWNLOADS_MAX: { value: "50000", type: "NUMBER", category: "FEATURE_FLAG", label: "Dummy Downloads Max" },
     APP_SUPPORT_URL: { value: "/support", type: "STRING", category: "FEATURE_FLAG", label: "App Support URL" },
     RESULT_SUBMIT_DELAY_MINS: { value: "10", type: "NUMBER", category: "TOURNAMENT", label: "Result Submit Delay After Room Share (mins)" },
     TOURNAMENT_LIVE_TO_PENDING_RESULTS_MINS: {

@@ -24,7 +24,7 @@ import { AppReleasesService } from "./app-releases.service";
 
 @Controller("app")
 export class PublicAppReleasesController {
-  constructor(private svc: AppReleasesService, private config: SystemConfigService) {}
+  constructor(private svc: AppReleasesService, private systemConfig: SystemConfigService) {}
 
   @Get("latest-release")
   latest() {
@@ -44,16 +44,16 @@ export class PublicAppReleasesController {
   @Get("dummy-config")
   async dummyConfig() {
     try {
-      await this.config.ready();
+      await this.systemConfig.ready();
       return {
-        dummyMode: this.config.getBool("DUMMY_DATA_MODE"),
+        dummyMode: this.systemConfig.getBool("DUMMY_DATA_MODE"),
         ranges: {
-          liveMin: this.config.getNumber("DUMMY_LIVE_PLAYERS_MIN"),
-          liveMax: this.config.getNumber("DUMMY_LIVE_PLAYERS_MAX"),
-          usersMin: this.config.getNumber("DUMMY_USER_COUNT_MIN"),
-          usersMax: this.config.getNumber("DUMMY_USER_COUNT_MAX"),
-          downloadsMin: this.config.getNumber("DUMMY_DOWNLOADS_MIN"),
-          downloadsMax: this.config.getNumber("DUMMY_DOWNLOADS_MAX"),
+          liveMin: this.systemConfig.getNumber("DUMMY_LIVE_PLAYERS_MIN"),
+          liveMax: this.systemConfig.getNumber("DUMMY_LIVE_PLAYERS_MAX"),
+          usersMin: this.systemConfig.getNumber("DUMMY_USER_COUNT_MIN"),
+          usersMax: this.systemConfig.getNumber("DUMMY_USER_COUNT_MAX"),
+          downloadsMin: this.systemConfig.getNumber("DUMMY_DOWNLOADS_MIN"),
+          downloadsMax: this.systemConfig.getNumber("DUMMY_DOWNLOADS_MAX"),
         },
       };
     } catch (e) {

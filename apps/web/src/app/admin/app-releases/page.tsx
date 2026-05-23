@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Download,
   FlaskConical,
+  RefreshCw,
   Rocket,
   Save,
   Smartphone,
@@ -136,8 +137,21 @@ const APP_RUNTIME_DEFAULTS: Record<string, string> = {
   APP_MAINTENANCE_MESSAGE: "FireSlot Nepal is updating. Please try again soon.",
 };
 
+interface ClientLog {
+  id: string;
+  event: string;
+  at: string;
+  href: string | null;
+  native: boolean;
+  details: string | null;
+  ip: string | null;
+  ua: string | null;
+  createdAt: string;
+}
+
 export default function AdminAppReleases() {
   const [items, setItems] = useState<AppRelease[]>([]);
+  const [clientLogs, setClientLogs] = useState<ClientLog[]>([]);
   const [buildInfo, setBuildInfo] = useState<BuildInfo | null>(null);
   const [version, setVersion] = useState("1.0.0");
   const [notes, setNotes] = useState("");
@@ -158,13 +172,15 @@ export default function AdminAppReleases() {
   async function load(showLoading = true) {
     if (showLoading) setLoading(true);
     try {
-      const [info, releases, configGroups] = await Promise.all([
+      const [info, releases, configGroups, logsData] = await Promise.all([
         api<BuildInfo>("/admin/app-releases/build-info"),
         api<AppRelease[]>("/admin/app-releases"),
         api<Record<string, ConfigItem[]>>("/admin/config").catch(() => null),
+        api<ClientLog[]>("/admin/client-logs").catch(() => []),
       ]);
       setBuildInfo(info);
       setItems(releases);
+      setClientLogs(logsData || []);
       if (configGroups) {
         setRuntimeDrafts(flattenConfig(configGroups));
       }
@@ -534,6 +550,100 @@ export default function AdminAppReleases() {
             )}
           </tbody>
         </table>
+        )}
+      </div>
+
+      {/* Device Responses & Errors Section */}
+      <div className="card space-y-4">
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="font-display text-lg flex items-center gap-2">
+              <Smartphone className="text-neon-cyan" size={18} /> Device Responses & Errors
+            </h2>
+            <p className="mt-1 text-xs text-white/50">
+              Live OAuth redirects, system browser activity, and login errors logged by active apps.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => load(false)}
+            className="btn-outline text-xs"
+          >
+            <RefreshCw size={12} className="mr-1 inline animate-spin-hover" /> Refresh Logs
+          </button>
+        </div>
+
+        {clientLogs.length > 0 ? (
+          <div className="overflow-auto max-h-[400px] border border-border/30 rounded-lg">
+            <table className="w-full text-xs text-left">
+              <thead className="bg-surface/50 border-b border-border/30 sticky top-0">
+                <tr>
+                  <th className="p-3">Event</th>
+                  <th className="p-3">Platform</th>
+                  <th className="p-3">Details / Errors</th>
+                  <th className="p-3">IP & User Agent</th>
+                  <th className="p-3">Time</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/20">
+                {clientLogs.map((log) => {
+                  let parsedDetails: any = {};
+                  try {
+                    parsedDetails = log.details ? JSON.parse(log.details) : {};
+                  } catch {}
+
+                  const isError = log.event.includes("error") || log.event.includes("fail");
+
+                  return (
+                    <tr key={log.id} className={`${isError ? "bg-red-500/5" : ""} hover:bg-white/5`}>
+                      <td className="p-3 font-semibold">
+                        <span className={`inline-flex items-center rounded px-2 py-0.5 text-[10px] ${
+                          isError
+                            ? "bg-red-500/10 border border-red-500/35 text-red-300"
+                            : log.event.includes("success") || log.event.includes("token")
+                              ? "bg-neon-green/10 border border-neon-green/35 text-neon-green"
+                              : "bg-neon-cyan/10 border border-neon-cyan/35 text-neon-cyan"
+                        }`}>
+                          {log.event}
+                        </span>
+                      </td>
+                      <td className="p-3 text-white/80">
+                        {log.native ? "📱 Native APK" : "🌐 Web Browser"}
+                      </td>
+                      <td className="p-3 max-w-[320px] break-words text-white/70">
+                        {isError && (
+                          <p className="font-semibold text-red-200">
+                            {String(parsedDetails.description || parsedDetails.message || log.details || "Unknown error")}
+                          </p>
+                        )}
+                        {!isError && (
+                          <div className="space-y-1 font-mono text-[10px] text-white/50">
+                            {Object.entries(parsedDetails).map(([k, v]) => (
+                              <div key={k}>
+                                <span className="text-white/60">{k}:</span> {String(v)}
+                              </div>
+                            ))}
+                            {Object.keys(parsedDetails).length === 0 && log.details && (
+                              <span>{log.details}</span>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                      <td className="p-3 text-white/40">
+                        <p className="font-mono text-[10px]">{log.ip || "Unknown IP"}</p>
+                        <p className="truncate max-w-[200px]" title={log.ua || ""}>{log.ua || "—"}</p>
+                      </td>
+                      <td className="p-3 text-white/50 text-[10px]">
+                        {new Date(log.createdAt).toLocaleString()}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-white/40 text-center py-8 text-sm">No device logs or errors received yet.</p>
         )}
       </div>
     </div>

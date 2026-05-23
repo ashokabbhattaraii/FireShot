@@ -18,7 +18,7 @@ function normalizeApiUrl(url: string): string {
 }
 
 const API = normalizeApiUrl(
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api",
+  process.env.NEXT_PUBLIC_API_URL ?? "https://fire-shot-api.vercel.app/api",
 );
 
 interface ApiRequestInit extends RequestInit {

@@ -94,8 +94,38 @@ export class AppConfigController {
       ua: String(req.headers["user-agent"] ?? "").slice(0, 220),
     };
     this.logger.warn(JSON.stringify(safe));
+
+    let parsedAt = new Date();
+    try {
+      const parsed = new Date(safe.at);
+      if (!isNaN(parsed.getTime())) parsedAt = parsed;
+    } catch {}
+
+    this.prisma.clientLog.create({
+      data: {
+        event: safe.event,
+        at: parsedAt,
+        href: safe.href,
+        native: safe.native,
+        details: safe.details,
+        ip: safe.ip,
+        ua: safe.ua,
+      }
+    }).catch(err => this.logger.error("Failed to save client log", err));
+
     return { ok: true };
   }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Get('admin/client-logs')
+  async getClientLogs() {
+    return this.prisma.clientLog.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 250,
+    });
+  }
+
 
   private configFlag(value: unknown) {
     if (typeof value === "boolean") return value;

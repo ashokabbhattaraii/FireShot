@@ -108,6 +108,19 @@ const TOURNAMENT_DETAIL_SELECT = {
       joinedAt: true,
       placement: true,
       prizeEarned: true,
+      user: {
+        select: {
+          profile: { select: { ign: true } },
+        },
+      },
+      teamMembers: {
+        select: {
+          id: true,
+          slotIndex: true,
+          igName: true,
+        },
+        orderBy: { slotIndex: "asc" },
+      },
     },
   },
   results: {
@@ -122,7 +135,7 @@ const TOURNAMENT_DETAIL_SELECT = {
         select: {
           id: true,
           name: true,
-          profile: { select: { ign: true, freefireUid: true } },
+          profile: { select: { ign: true, freeFireUid: true } },
         },
       },
     },
@@ -199,7 +212,7 @@ export class TournamentsService implements OnModuleInit {
     let canSeeRoom = role === "ADMIN";
     if (!canSeeRoom && userId) {
       const p = await this.prisma.tournamentParticipant.findFirst({
-        where: { tournamentId, userId, paid: true },
+        where: { tournamentId, userId },
         select: { id: true },
       });
       canSeeRoom = !!p;
@@ -276,7 +289,7 @@ export class TournamentsService implements OnModuleInit {
     let canSeeRoom = role === "ADMIN";
     if (!canSeeRoom && userId) {
       const p = t.participants.find((x: any) => x.userId === userId);
-      canSeeRoom = !!(p && p.paid);
+      canSeeRoom = !!p;
     }
     if (!canSeeRoom) {
       return { ...t, roomId: null, roomPassword: null };
@@ -500,6 +513,16 @@ export class TournamentsService implements OnModuleInit {
   }
 
   async setStatus(id: string, dto: UpdateTournamentStatusDto) {
+    if (dto.status === TournamentStatus.LIVE) {
+      const existing = await this.prisma.tournament.findUnique({
+        where: { id },
+        select: { roomId: true, roomPassword: true },
+      });
+      if (!existing) throw new NotFoundException("Tournament not found");
+      if (!existing.roomId || !existing.roomPassword) {
+        throw new BadRequestException("Publish Room ID and password before moving tournament to LIVE");
+      }
+    }
     const updated = await this.prisma.tournament.update({
       where: { id },
       data: {

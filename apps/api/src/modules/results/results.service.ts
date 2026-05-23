@@ -1,5 +1,5 @@
-import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaClient, TournamentStatus } from '@fireslot/db';
+import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaClient } from '@fireslot/db';
 import { PRISMA } from '../../prisma/prisma.module';
 
 @Injectable()
@@ -11,46 +11,9 @@ export class ResultsService {
     body: { tournamentId: string; placement?: number; kills?: number; note?: string },
     fileUrl: string,
   ) {
-    const tournament = await this.prisma.tournament.findUnique({
-      where: { id: body.tournamentId },
-      select: { id: true, status: true },
-    });
-    if (!tournament) throw new NotFoundException('Tournament not found');
-
-    if (
-      tournament.status !== TournamentStatus.PENDING_RESULTS &&
-      tournament.status !== TournamentStatus.LIVE
-    ) {
-      throw new BadRequestException(
-        `Cannot submit results when tournament is ${tournament.status}. Tournament must be LIVE or PENDING_RESULTS.`,
-      );
-    }
-
-    const participant = await this.prisma.tournamentParticipant.findFirst({
-      where: { tournamentId: body.tournamentId, userId, paid: true },
-      select: { id: true },
-    });
-    if (!participant) {
-      throw new ForbiddenException('You are not a paid participant of this tournament');
-    }
-
-    const existing = await this.prisma.matchResult.findFirst({
-      where: { tournamentId: body.tournamentId, submittedById: userId },
-    });
-    if (existing) {
-      throw new BadRequestException('You have already submitted a result for this tournament');
-    }
-
-    return this.prisma.matchResult.create({
-      data: {
-        tournamentId: body.tournamentId,
-        submittedById: userId,
-        placement: body.placement ? Number(body.placement) : null,
-        kills: body.kills ? Number(body.kills) : null,
-        note: body.note,
-        screenshotUrl: fileUrl,
-      },
-    });
+    throw new BadRequestException(
+      'Tournament results are managed by admin. Players do not submit tournament results.',
+    );
   }
 
   list(verified?: 'true' | 'false', tournamentId?: string) {

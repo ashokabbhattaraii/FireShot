@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { Trophy, Users, Coins, ChevronDown, MapPin, Bomb } from "lucide-react";
 import { fmtDate, npr } from "@/lib/utils";
@@ -85,6 +86,7 @@ export default function TournamentsListPage() {
 function TournamentRow({
   t, expanded, toggle,
 }: { t: any; expanded: boolean; toggle: () => void }) {
+  const router = useRouter();
   const ps = t.prizeStructure ?? {};
   const type = (t.type ?? "SOLO_1ST") as TournamentType;
   const isWTA = type === "SOLO_1ST" || isWinnerTakesAllOnly(t.mode ?? "");
@@ -119,7 +121,15 @@ function TournamentRow({
   const isResult = t.status === "COMPLETED" || t.status === "PENDING_RESULTS";
 
   return (
-    <div className="rounded-2xl border border-border bg-gradient-to-br from-[#1a1233] via-[#0f0a26] to-[#1a1233] overflow-hidden">
+    <article
+      role="link"
+      tabIndex={0}
+      onClick={() => router.push(`/tournaments/${t.id}`)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") router.push(`/tournaments/${t.id}`);
+      }}
+      className="cursor-pointer rounded-2xl border border-border bg-gradient-to-br from-[#1a1233] via-[#0f0a26] to-[#1a1233] overflow-hidden transition hover:border-neon/50"
+    >
       {t.coverUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={t.coverUrl} alt="" className="h-32 w-full object-cover" />
@@ -150,7 +160,7 @@ function TournamentRow({
           <Cell label="Date">
             <div className="text-xs text-white">{fmtDate(t.dateTime)}</div>
           </Cell>
-          <button onClick={toggle} className="text-left">
+          <button onClick={(e) => { e.stopPropagation(); toggle(); }} className="text-left">
             <Cell label={isWTA ? "WINNER GETS" : isPlacementPrize ? "TOP PRIZE" : "PRIZE POOL"}>
               <div className="flex items-center gap-1 text-neon font-bold text-sm">
                 ~{npr(isPlacementPrize && rankPreview[0]?.amount ? rankPreview[0].amount : netPool)} <ChevronDown size={12} className={expanded ? "rotate-180" : ""} />
@@ -204,6 +214,7 @@ function TournamentRow({
           </span>
           <Link
             href={`/tournaments/${t.id}`}
+            onClick={(e) => e.stopPropagation()}
             className={`rounded-full px-4 py-1.5 text-xs font-semibold text-white shadow-lg flex items-center gap-1 ${
               canJoin || isResult ? "bg-gradient-to-r from-rose-500 to-pink-500" : "border border-white/15 bg-white/10 text-white/70"
             }`}
@@ -212,7 +223,7 @@ function TournamentRow({
           </Link>
         </div>
       </div>
-    </div>
+    </article>
   );
 }
 

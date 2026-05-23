@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useRef } from "react";
+import Link from "next/link";
 import { api, FILE_BASE } from "@/lib/api";
 import {
   GameModeLabels,
@@ -54,6 +55,9 @@ export default function AdminTournaments() {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, { placement: string; kills: string; note: string }>>({});
+  const [roomDrafts, setRoomDrafts] = useState<Record<string, { roomId: string; roomPassword: string }>>({});
+  const [resultParticipants, setResultParticipants] = useState<any[]>([]);
+  const [manualResultDrafts, setManualResultDrafts] = useState<Record<string, { placement: string; kills: string }>>({});
 
   async function load(showLoading = true) {
     if (showLoading) setLoading(true);
@@ -107,29 +111,37 @@ export default function AdminTournaments() {
 
   async function setStatus(id: string, status: string) {
     setActionKey(`${id}:status`);
+    setMsg(null);
     try {
       await api(`/tournaments/${id}/status`, {
         method: "PUT",
         body: JSON.stringify({ status }),
       });
       await load(false);
+    } catch (e: any) {
+      setMsg(e.message ?? "Could not update status");
     } finally {
       setActionKey(null);
     }
   }
 
-  async function publishRoom(id: string) {
-    const roomId = prompt("Room ID?");
+  async function publishRoom(id: string, room?: { roomId?: string; roomPassword?: string }) {
+    const draft = room ?? roomDrafts[id];
+    const roomId = draft?.roomId?.trim() || prompt("Room ID?")?.trim();
     if (!roomId) return;
-    const roomPassword = prompt("Room password?");
+    const roomPassword = draft?.roomPassword?.trim() || prompt("Room password?")?.trim();
     if (!roomPassword) return;
+    setMsg(null);
     setActionKey(`${id}:room`);
     try {
       await api(`/tournaments/${id}/room`, {
         method: "PUT",
         body: JSON.stringify({ roomId, roomPassword }),
       });
+      setRoomDrafts((prev) => ({ ...prev, [id]: { roomId, roomPassword } }));
       await load(false);
+    } catch (e: any) {
+      setMsg(e.message ?? "Could not publish room");
     } finally {
       setActionKey(null);
     }
@@ -142,7 +154,7 @@ export default function AdminTournaments() {
       await api(`/tournaments/${id}/lock-room`, { method: "POST" });
       await load(false);
     } catch (e: any) {
-      alert(e.message);
+      setMsg(e.message ?? "Could not lock room");
     } finally {
       setActionKey(null);
     }
@@ -167,7 +179,10 @@ export default function AdminTournaments() {
     setModalLoading(true);
     try {
       const data = await api(`/results?verified=false&tournamentId=${encodeURIComponent(tournament.id)}`);
+      const full = await api(`/tournaments/${tournament.id}/full`);
       setResultsItems(data);
+      const joinedParticipants = full.participants ?? [];
+      setResultParticipants(joinedParticipants);
       setDrafts((prev) => {
         const next = { ...prev };
         for (const item of data) {
@@ -179,10 +194,53 @@ export default function AdminTournaments() {
         }
         return next;
       });
+      setManualResultDrafts((prev) => {
+        const next = { ...prev };
+        for (const participant of joinedParticipants) {
+          next[participant.userId] = next[participant.userId] ?? {
+            placement: participant.placement ? String(participant.placement) : "",
+            kills: "",
+          };
+        }
+        return next;
+      });
     } catch (e) {
       alert("Failed to load results");
     } finally {
       setModalLoading(false);
+    }
+  }
+
+  async function publishManualResults() {
+    if (!modalTournament) return;
+    const winners = resultParticipants
+      .map((participant) => {
+        const draft = manualResultDrafts[participant.userId] ?? { placement: "", kills: "" };
+        return {
+          userId: participant.userId,
+          placement: draft.placement ? Number(draft.placement) : undefined,
+          kills: draft.kills ? Number(draft.kills) : 0,
+          gotBooyah: draft.placement === "1",
+        };
+      })
+      .filter((row) => row.placement !== undefined || row.kills > 0);
+    if (winners.length === 0) {
+      alert("Add at least one player's final placement or kill count before publishing results.");
+      return;
+    }
+    if (!confirm("Publish these results and credit prizes?")) return;
+    setActionKey(`${modalTournament.id}:manual-results`);
+    try {
+      await api(`/tournaments/${modalTournament.id}/winners`, {
+        method: "POST",
+        body: JSON.stringify({ winners }),
+      });
+      setResultsModalOpen(false);
+      await load(false);
+    } catch (e: any) {
+      alert(e.message ?? "Could not publish results");
+    } finally {
+      setActionKey(null);
     }
   }
 
@@ -574,25 +632,93 @@ export default function AdminTournaments() {
                   }
                 />
               </div>
+              <div className="mt-3 rounded-lg border border-amber-400/30 bg-amber-400/10 p-3 text-xs text-amber-100">
+                <p className="font-semibold">
+                  {t.status === "UPCOMING"
+                    ? "Step 1: publish Room ID + password. Wait around 10 minutes in Free Fire, then start match."
+                    : t.status === "LIVE"
+                      ? "Step 2: match is live. Watch kills, rankings, suspicious play, and winner in Free Fire. End match when game concludes."
+                      : t.status === "PENDING_RESULTS"
+                        ? "Step 3: enter the official final placement and kills from Free Fire, then publish results."
+                        : t.status === "COMPLETED"
+                          ? "Completed: players should use View Result."
+                          : "Cancelled tournament."}
+                </p>
+              </div>
+              {(t.status === "UPCOMING" || t.status === "LIVE") && (
+                <div className="mt-3 grid grid-cols-[1fr_1fr_auto] gap-2">
+                  <input
+                    className="input text-sm"
+                    placeholder="Room ID"
+                    value={roomDrafts[t.id]?.roomId ?? ""}
+                    onChange={(e) =>
+                      setRoomDrafts((prev) => ({
+                        ...prev,
+                        [t.id]: { ...(prev[t.id] ?? { roomId: "", roomPassword: "" }), roomId: e.target.value },
+                      }))
+                    }
+                  />
+                  <input
+                    className="input text-sm"
+                    placeholder="Room password"
+                    value={roomDrafts[t.id]?.roomPassword ?? ""}
+                    onChange={(e) =>
+                      setRoomDrafts((prev) => ({
+                        ...prev,
+                        [t.id]: { ...(prev[t.id] ?? { roomId: "", roomPassword: "" }), roomPassword: e.target.value },
+                      }))
+                    }
+                  />
+                  <button
+                    className="btn-primary text-xs"
+                    type="button"
+                    onClick={() => publishRoom(t.id, roomDrafts[t.id])}
+                    disabled={actionKey === `${t.id}:room`}
+                  >
+                    <ButtonLoading loading={actionKey === `${t.id}:room`} loadingText="Saving...">
+                      Save Room
+                    </ButtonLoading>
+                  </button>
+                </div>
+              )}
               <div className="mt-3 flex gap-2 flex-wrap">
-                <button
+                <Link
+                  href={`/tournaments/${t.id}`}
                   className="btn-outline text-xs"
-                  onClick={() => publishRoom(t.id)}
+                >
+                  View Detail
+                </Link>
+                <button
+                  className={`${t.status === "UPCOMING" || t.status === "LIVE" ? "btn-primary" : "btn-outline"} text-xs`}
+                  onClick={() => publishRoom(t.id, roomDrafts[t.id])}
                   disabled={actionKey?.startsWith(`${t.id}:`)}
                 >
                   <ButtonLoading loading={actionKey === `${t.id}:room`} loadingText="Saving room...">
-                    Room
+                    Publish / Update Room
                   </ButtonLoading>
                 </button>
-                <button
-                  className="btn-outline text-xs"
-                  onClick={() => lockRoom(t.id)}
-                  disabled={t.roomLocked || actionKey?.startsWith(`${t.id}:`)}
-                >
-                  <ButtonLoading loading={actionKey === `${t.id}:lock`} loadingText="Locking...">
-                    {t.roomLocked ? `Locked (${t.actualPlayers})` : "Lock Room"}
-                  </ButtonLoading>
-                </button>
+                {t.status === "UPCOMING" && (
+                  <button
+                    className="btn-primary text-xs"
+                    onClick={() => setStatus(t.id, "LIVE")}
+                    disabled={actionKey?.startsWith(`${t.id}:`)}
+                  >
+                    <ButtonLoading loading={actionKey === `${t.id}:status`} loadingText="Starting...">
+                      Start Match
+                    </ButtonLoading>
+                  </button>
+                )}
+                {t.status === "LIVE" && (
+                  <button
+                    className="btn-primary text-xs"
+                    onClick={() => setStatus(t.id, "PENDING_RESULTS")}
+                    disabled={actionKey?.startsWith(`${t.id}:`)}
+                  >
+                    <ButtonLoading loading={actionKey === `${t.id}:status`} loadingText="Ending...">
+                      End Match
+                    </ButtonLoading>
+                  </button>
+                )}
                 <button
                   className="btn-danger text-xs"
                   onClick={() => deleteTournament(t.id)}
@@ -602,14 +728,14 @@ export default function AdminTournaments() {
                     Delete
                   </ButtonLoading>
                 </button>
-                {(t.status === "PENDING_RESULTS" || t.status === "LIVE") && (
+                {(t.status === "PENDING_RESULTS" || t.status === "LIVE" || t.status === "COMPLETED") && (
                   <button
                     type="button"
-                    className="btn-outline text-xs"
+                    className={`${t.status === "PENDING_RESULTS" ? "btn-primary" : "btn-outline"} text-xs`}
                     onClick={() => openResultsModal(t)}
                     disabled={actionKey?.startsWith(`${t.id}:`)}
                   >
-                    Results
+                    Update Results
                   </button>
                 )}
                 <select
@@ -617,6 +743,7 @@ export default function AdminTournaments() {
                   className="input text-xs flex-1 min-w-[120px]"
                   value={t.status}
                   disabled={actionKey?.startsWith(`${t.id}:`)}
+                  title="Manual override"
                 >
                   <option value="UPCOMING">UPCOMING</option>
                   <option value="LIVE">LIVE</option>
@@ -644,10 +771,81 @@ export default function AdminTournaments() {
               </div>
             </div>
             <div className="space-y-3">
+              <div className="rounded-lg border border-neon/30 bg-neon/5 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-white">Manual result publish</p>
+                    <p className="mt-1 text-xs text-white/50">
+                      Tournaments are admin managed. Enter placement and kills from the match, then publish to credit prizes.
+                    </p>
+                  </div>
+                  <button
+                    className="btn-primary text-xs"
+                    onClick={() => publishManualResults()}
+                    disabled={actionKey === `${modalTournament?.id}:manual-results`}
+                  >
+                    <ButtonLoading loading={actionKey === `${modalTournament?.id}:manual-results`} loadingText="Publishing...">
+                      Publish Results
+                    </ButtonLoading>
+                  </button>
+                </div>
+                <div className="mt-3 space-y-2">
+                  {resultParticipants.length === 0 ? (
+                    <p className="text-xs text-white/50">No joined players found. Players must join before you can publish the tournament result.</p>
+                  ) : (
+                    resultParticipants.map((participant) => {
+                      const ign = participant.user?.profile?.ign ?? "Player";
+                      const teamNames = participant.teamMembers?.map((member: any) => member.igName).filter(Boolean) ?? [];
+                      const draft = manualResultDrafts[participant.userId] ?? { placement: "", kills: "" };
+                      return (
+                        <div key={participant.id} className="grid grid-cols-[1fr_90px_90px] items-center gap-2 rounded-md border border-border bg-black/20 p-2">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-white">{ign}</p>
+                            {teamNames.length > 0 && (
+                              <p className="truncate text-[10px] text-white/45">Team: {teamNames.join(", ")}</p>
+                            )}
+                          </div>
+                          <input
+                            className="input text-sm"
+                            placeholder="Place"
+                            inputMode="numeric"
+                            value={draft.placement}
+                            onChange={(e) =>
+                              setManualResultDrafts((prev) => ({
+                                ...prev,
+                                [participant.userId]: {
+                                  ...(prev[participant.userId] ?? { placement: "", kills: "" }),
+                                  placement: e.target.value.replace(/\D/g, ""),
+                                },
+                              }))
+                            }
+                          />
+                          <input
+                            className="input text-sm"
+                            placeholder="Kills"
+                            inputMode="numeric"
+                            value={draft.kills}
+                            onChange={(e) =>
+                              setManualResultDrafts((prev) => ({
+                                ...prev,
+                                [participant.userId]: {
+                                  ...(prev[participant.userId] ?? { placement: "", kills: "" }),
+                                  kills: e.target.value.replace(/\D/g, ""),
+                                },
+                              }))
+                            }
+                          />
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
               {modalLoading ? (
                 <p className="text-sm text-white/60">Loading results...</p>
               ) : resultsItems.length === 0 ? (
-                <p className="text-sm text-white/60">No pending results for this tournament.</p>
+                <p className="text-sm text-white/60">No legacy player-submitted results. Use the official admin result form above.</p>
               ) : (
                 resultsItems.map((r) => (
                   <div key={r.id} className="rounded-md border border-border bg-surface/50 p-3">

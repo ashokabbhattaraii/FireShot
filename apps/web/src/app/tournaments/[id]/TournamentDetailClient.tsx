@@ -10,7 +10,7 @@ import { useTournamentRealtime } from "@/hooks/useTournamentRealtime";
 import { ButtonLoading, PageLoading } from "@/components/ui";
 import { TeamJoinSection, getTeamSizeFromTournament } from "@/components/TeamJoinSection";
 import {
-  Trophy, AlertTriangle, Settings, BookOpen, ShieldCheck, X, ArrowLeft,
+  Trophy, AlertTriangle, Settings, BookOpen, ShieldCheck, X, ArrowLeft, KeyRound, Clock, Users,
 } from "lucide-react";
 import Link from "next/link";
 import { isWinnerTakesAllOnly, PRIZE_SPLITS, TournamentTypeLabels, type TournamentType } from "@fireslot/shared";
@@ -250,6 +250,82 @@ export default function TournamentDetailClient() {
           </Section>
         )}
 
+        <Section title="MATCH ACCESS" accent="var(--fs-green)" icon={<KeyRound size={14} />}>
+          {alreadyJoined ? (
+            t.roomId && (t.status === "LIVE" || t.status === "PENDING_RESULTS" || t.status === "COMPLETED") ? (
+              <div className="grid grid-cols-2 gap-2">
+                <AccessBox label="Room ID" value={t.roomId} />
+                <AccessBox label="Password" value={t.roomPassword ?? "Hidden"} />
+                <p className="col-span-2 mt-1 text-xs" style={{ color: "var(--fs-text-3)" }}>
+                  Join immediately when the match is live. Late join can forfeit your slot.
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-lg px-3 py-3" style={{ background: "var(--fs-surface-1)", border: "0.5px solid var(--fs-border)" }}>
+                <p className="flex items-center gap-2 text-sm font-semibold" style={{ color: "var(--fs-text-1)" }}>
+                  <Clock size={14} /> Room details will appear here
+                </p>
+                <p className="mt-1 text-xs" style={{ color: "var(--fs-text-3)" }}>
+                  Admin publishes the Room ID and password before start. Keep this page open; it refreshes when the room goes live.
+                </p>
+              </div>
+            )
+          ) : (
+            <div className="rounded-lg px-3 py-3" style={{ background: "var(--fs-surface-1)", border: "0.5px solid var(--fs-border)" }}>
+              <p className="flex items-center gap-2 text-sm font-semibold" style={{ color: "var(--fs-text-1)" }}>
+                <Users size={14} /> Join to unlock room details
+              </p>
+              <p className="mt-1 text-xs" style={{ color: "var(--fs-text-3)" }}>
+                Only confirmed players can see Room ID and password.
+              </p>
+            </div>
+          )}
+        </Section>
+
+        <Section title="JOINED PLAYERS" accent="var(--fs-green)" icon={<Users size={14} />}>
+          {t.participants?.length ? (
+            <div className="space-y-2">
+              {t.participants.map((participant: any, index: number) => {
+                const captainIgn = participant.user?.profile?.ign ?? `Player ${index + 1}`;
+                const teamNames = participant.teamMembers?.map((member: any) => member.igName).filter(Boolean) ?? [];
+                return (
+                  <div
+                    key={participant.id}
+                    className="rounded-lg px-3 py-2"
+                    style={{ background: "var(--fs-surface-1)", border: "0.5px solid var(--fs-border)" }}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="truncate text-sm font-semibold" style={{ color: "var(--fs-text-1)" }}>
+                        {captainIgn}
+                      </p>
+                      <span className="fs-badge fs-badge-green">
+                        Joined
+                      </span>
+                    </div>
+                    {teamNames.length > 0 && (
+                      <p className="mt-1 text-xs" style={{ color: "var(--fs-text-3)" }}>
+                        Team: {teamNames.join(", ")}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-xs" style={{ color: "var(--fs-text-3)" }}>
+              Joined players will appear here after they reserve a slot.
+            </p>
+          )}
+        </Section>
+
+        <Section title="HOW THIS MATCH RUNS" accent="var(--fs-amber)" icon={<BookOpen size={14} />}>
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <FlowStep label="1. Join" value="Reserve your slot" />
+            <FlowStep label="2. Room" value="ID + pass unlocked" />
+            <FlowStep label="3. Result" value="Admin verifies payout" />
+          </div>
+        </Section>
+
         {canViewResult && (
           <Section title="MATCH RESULT" accent="var(--fs-gold)" icon={<Trophy size={14} />}>
             {t.results?.length ? (
@@ -346,61 +422,58 @@ export default function TournamentDetailClient() {
         </div>
       )}
 
-      {/* Sticky Join Button */}
-      <div
-        className="fixed left-0 right-0 z-[100] p-4"
-        style={{
-          bottom: 'calc(64px + var(--fs-safe-bottom))',
-          background: 'rgba(11,11,20,0.98)',
-          backdropFilter: 'blur(12px)',
-          borderTop: '1px solid var(--fs-border)',
-        }}
-      >
-        <button
-          onClick={() => {
-            if (canViewResult) {
-              document
-                .querySelector("[data-section='MATCH RESULT']")
-                ?.scrollIntoView({ behavior: "smooth" });
-              return;
-            }
-            if (requiredCaptainRosterCount > 0) {
-              setShowRosterForm(true);
-              return;
-            }
-            void join();
-          }}
-          disabled={
-            joining ||
-            (!canViewResult && t.status !== "UPCOMING") ||
-            (!canViewResult && alreadyJoined) ||
-            (!canViewResult && !isEnabled("TOURNAMENT_JOIN_ENABLED")) ||
-            (getTeamSizeFromTournament(t) > 1 && !requiredCaptainRosterCount && teammates.some(tm => !/^\d{9,12}$/.test(tm.freefireUid) || !tm.igName.trim()))
-          }
-          className="fs-btn fs-btn-primary fs-btn-full"
+      {(!alreadyJoined || canViewResult) && (
+        <div
+          className="fixed left-0 right-0 z-[100] p-4"
           style={{
-            height: '50px',
-            fontSize: '15px',
-            background: alreadyJoined && !canViewResult ? 'var(--fs-green)' : undefined,
-            opacity: (!canViewResult && t.status !== "UPCOMING" && !alreadyJoined) ? 0.5 : 1,
+            bottom: 'calc(64px + var(--fs-safe-bottom))',
+            background: 'rgba(11,11,20,0.98)',
+            backdropFilter: 'blur(12px)',
+            borderTop: '1px solid var(--fs-border)',
           }}
         >
-          <ButtonLoading loading={joining} loadingText="Joining...">
-            {canViewResult
-                ? "View Result"
-              : alreadyJoined
-                ? "Already Joined ✓"
-                : t.status !== "UPCOMING"
-                ? t.status
-                : requiredCaptainRosterCount > 0
-                  ? `JOIN TEAM · Rs ${t.entryFeeNpr}/team`
-                  : getTeamSizeFromTournament(t) > 1
-                    ? `Join with Team (${getTeamSizeFromTournament(t)} players) · Rs ${t.entryFeeNpr}`
-                    : `JOIN NOW · Rs ${t.entryFeeNpr}`}
-          </ButtonLoading>
-        </button>
-        {msg && <p className="mt-2 text-center text-xs" style={{ color: 'var(--fs-text-3)' }}>{msg}</p>}
-      </div>
+          <button
+            onClick={() => {
+              if (canViewResult) {
+                document
+                  .querySelector("[data-section='MATCH RESULT']")
+                  ?.scrollIntoView({ behavior: "smooth" });
+                return;
+              }
+              if (requiredCaptainRosterCount > 0) {
+                setShowRosterForm(true);
+                return;
+              }
+              void join();
+            }}
+            disabled={
+              joining ||
+              (!canViewResult && t.status !== "UPCOMING") ||
+              (!canViewResult && !isEnabled("TOURNAMENT_JOIN_ENABLED")) ||
+              (getTeamSizeFromTournament(t) > 1 && !requiredCaptainRosterCount && teammates.some(tm => !/^\d{9,12}$/.test(tm.freefireUid) || !tm.igName.trim()))
+            }
+            className="fs-btn fs-btn-primary fs-btn-full"
+            style={{
+              height: '50px',
+              fontSize: '15px',
+              opacity: (!canViewResult && t.status !== "UPCOMING") ? 0.5 : 1,
+            }}
+          >
+            <ButtonLoading loading={joining} loadingText="Joining...">
+              {canViewResult
+                  ? "View Result"
+                  : t.status !== "UPCOMING"
+                  ? t.status
+                  : requiredCaptainRosterCount > 0
+                    ? `JOIN TEAM · Rs ${t.entryFeeNpr}/team`
+                    : getTeamSizeFromTournament(t) > 1
+                      ? `Join with Team (${getTeamSizeFromTournament(t)} players) · Rs ${t.entryFeeNpr}`
+                      : `JOIN NOW · Rs ${t.entryFeeNpr}`}
+            </ButtonLoading>
+          </button>
+          {msg && <p className="mt-2 text-center text-xs" style={{ color: 'var(--fs-text-3)' }}>{msg}</p>}
+        </div>
+      )}
 
       {showFail && eligibility && !eligibility.eligible && (
         <FailModal
@@ -449,6 +522,24 @@ function InfoChip({ label, value }: { label: string; value: string }) {
     <div className="text-center rounded-lg p-2" style={{ background: 'var(--fs-surface-1)', border: '0.5px solid var(--fs-border)' }}>
       <p className="text-[9px] uppercase font-semibold" style={{ color: 'var(--fs-text-3)' }}>{label}</p>
       <p className="text-xs font-bold mt-0.5" style={{ color: 'var(--fs-text-1)' }}>{value}</p>
+    </div>
+  );
+}
+
+function AccessBox({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg p-3 text-center" style={{ background: "var(--fs-surface-1)", border: "0.5px solid var(--fs-border)" }}>
+      <p className="text-[9px] uppercase font-semibold" style={{ color: "var(--fs-text-3)" }}>{label}</p>
+      <p className="mt-1 font-mono text-base font-black" style={{ color: "var(--fs-gold)" }}>{value}</p>
+    </div>
+  );
+}
+
+function FlowStep({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg p-2" style={{ background: "var(--fs-surface-1)", border: "0.5px solid var(--fs-border)" }}>
+      <p className="text-[10px] font-bold" style={{ color: "var(--fs-text-1)" }}>{label}</p>
+      <p className="mt-0.5 text-[10px]" style={{ color: "var(--fs-text-3)" }}>{value}</p>
     </div>
   );
 }

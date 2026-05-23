@@ -318,6 +318,30 @@ export class PrizeService {
       if (!t) throw new NotFoundException();
 
       const credits: { userId: string; amount: number; note: string }[] = [];
+      const officialResults = results.filter(
+        (r) => r.placement !== undefined || (r.kills ?? 0) > 0 || r.gotBooyah,
+      );
+
+      // Tournaments are admin/system managed. Replace any legacy player-submitted
+      // rows with the official admin-published scoreboard.
+      await tx.matchResult.deleteMany({ where: { tournamentId } });
+      for (const r of officialResults) {
+        await tx.matchResult.create({
+          data: {
+            tournamentId,
+            submittedById: r.userId,
+            placement: r.placement ?? null,
+            kills: r.kills ?? 0,
+            note: "Official admin result",
+            screenshotUrl: "",
+            verified: true,
+          },
+        });
+        await tx.tournamentParticipant.updateMany({
+          where: { tournamentId, userId: r.userId },
+          data: { placement: r.placement ?? null },
+        });
+      }
 
       // Winner-takes-all modes: entire net pool goes to winning team's captain
       if (this.isWinnerTakesAllMode(t.mode, t.type)) {

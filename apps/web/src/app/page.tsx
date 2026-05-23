@@ -54,7 +54,7 @@ export default function HomePage() {
 
   useEffect(() => {
     Promise.all([
-      api("/tournaments").then(setTournaments),
+      api("/tournaments?statuses=LIVE,UPCOMING&limit=8").then(setTournaments),
       api("/challenges?limit=4").then(setChallenges).catch(() => setChallenges([])),
       api("/categories").then(setCategories).catch(() => setCategories([])),
       api("/app/stats").then(setStats).catch(() => null),
@@ -78,6 +78,7 @@ export default function HomePage() {
   const liveCounts = useMemo(() => {
     const map: Record<string, number> = {};
     for (const t of tournaments) {
+      if (t.status !== "LIVE") continue;
       const m = (t.mode ?? "") as string;
       let key: string | null = null;
       if (m.startsWith("BR_")) key = "ff-br";
@@ -126,8 +127,20 @@ export default function HomePage() {
     [categories],
   );
 
-  const activeCount = tournaments.filter((t) => t.status === "ONGOING" || t.status === "UPCOMING").length;
-  const totalPrize = tournaments.reduce((sum, t) => sum + (t.prizePoolNpr ?? 0), 0);
+  const visibleTournaments = useMemo(
+    () =>
+      tournaments
+        .filter((t) => t.status === "LIVE" || t.status === "UPCOMING")
+        .sort((a, b) => {
+          const rank = (status: string) => (status === "LIVE" ? 0 : 1);
+          const byStatus = rank(a.status) - rank(b.status);
+          if (byStatus !== 0) return byStatus;
+          return new Date(a.dateTime).getTime() - new Date(b.dateTime).getTime();
+        }),
+    [tournaments],
+  );
+  const activeCount = visibleTournaments.length;
+  const totalPrize = visibleTournaments.reduce((sum, t) => sum + (t.prizePoolNpr ?? 0), 0);
   const latestMatch = matches
     ? [...(matches.tournaments ?? []), ...(matches.challenges ?? [])].sort((a: any, b: any) => {
         const left = new Date(a.joinedAt ?? a.createdAt ?? 0).getTime();
@@ -248,22 +261,22 @@ export default function HomePage() {
           )}
         </section>
 
-        {/* Upcoming Matches */}
+        {/* Live & Upcoming Matches */}
         <section>
           <div className="fs-section-header">
-            <span className="fs-section-title">Upcoming Matches</span>
+            <span className="fs-section-title">Live & Upcoming Matches</span>
             <Link href="/tournaments" className="fs-section-link">View all</Link>
           </div>
           {loading ? (
             <LoadingState label="Loading tournaments..." />
-          ) : tournaments.length === 0 ? (
+          ) : visibleTournaments.length === 0 ? (
             <EmptyState
-              title="No tournaments yet"
-              description="Admin-created rooms will appear here first."
+              title="No live or upcoming matches"
+              description="Scheduled matches appear here automatically when they are ready."
             />
           ) : (
             <div className="space-y-4">
-              {tournaments.slice(0, 5).map((t) => (
+              {visibleTournaments.slice(0, 5).map((t) => (
                 <TournamentCard key={t.id} t={t} />
               ))}
             </div>
@@ -426,7 +439,7 @@ function ChallengeRoomCard({ challenge }: { challenge: any }) {
       </div>
       <div className="mt-3 flex items-center justify-between text-xs text-[var(--fs-text-3)]">
         <span>{createdAt ? fmtDate(createdAt.toISOString()) : "New"}</span>
-        <span>{challenge.opponentId ? "Opponent locked" : "Waiting for opponent"}</span>
+        <span>{challenge.status === "COMPLETED" ? "View result" : challenge.opponentId ? "Opponent locked" : "Waiting for opponent"}</span>
       </div>
     </Link>
   );

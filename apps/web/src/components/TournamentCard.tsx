@@ -4,13 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import {
   GameModeLabels,
   TournamentTypeLabels,
-  calculateKillPrize,
   calculatePrize,
   formatSlots,
-  GAME_MODE_LIMITS,
   isWinnerTakesAllOnly,
+  PRIZE_SPLITS,
   type TournamentType,
-  type PrizeGameMode,
 } from "@fireslot/shared";
 import { fmtDate, npr } from "@/lib/utils";
 import { api } from "@/lib/api";
@@ -24,15 +22,18 @@ export function TournamentCard({ t }: { t: any }) {
   const type = (t.type ?? "SOLO_1ST") as TournamentType;
   const isFree = type === "FREE_DAILY";
   const modeLabel = GameModeLabels[t.mode as keyof typeof GameModeLabels] ?? t.mode;
-  const isWTA = isWinnerTakesAllOnly(t.mode ?? "");
+  const isWTA = type === "SOLO_1ST" || isWinnerTakesAllOnly(t.mode ?? "");
+  const isPlacementPrize = type === "SOLO_TOP3" || type === "SQUAD_TOP10";
+  const isKillPrize = type === "KILL_RACE" || type === "COMBO";
 
   const displayPrize = useMemo(() => {
     const existingPerKill = t.killPrize ?? t.perKillReward ?? t.perKillPrizeNpr ?? 0;
-    if (existingPerKill > 0 || isWTA) {
+    if (existingPerKill > 0 || isWTA || isPlacementPrize) {
       return {
-        perKill: existingPerKill,
-        booyah: t.booyahPrize ?? 0,
+        perKill: isKillPrize ? existingPerKill : 0,
+        booyah: isKillPrize ? t.booyahPrize ?? 0 : 0,
         prizePool: t.prizeStructure?.netPool ?? t.firstPrize ?? t.prizePoolNpr ?? 0,
+        breakdown: t.prizeStructure?.prizeBreakdown ?? [],
       };
     }
     const calc = calculatePrize({
@@ -44,11 +45,20 @@ export function TournamentCard({ t }: { t: any }) {
       perKill: calc.perKillReward,
       booyah: calc.booyahPrize,
       prizePool: calc.netPool,
+      breakdown: calc.prizeBreakdown,
     };
-  }, [t, playerFee, type, isWTA]);
+  }, [t, playerFee, type, isWTA, isPlacementPrize, isKillPrize]);
 
   const perKill = displayPrize.perKill;
   const topPrize = displayPrize.prizePool || t.firstPrize || t.prizePoolNpr || 0;
+  const rankPreview =
+    displayPrize.breakdown?.length
+      ? displayPrize.breakdown.slice(0, type === "SQUAD_TOP10" ? 3 : 10)
+      : (PRIZE_SPLITS[type] ?? []).slice(0, type === "SQUAD_TOP10" ? 3 : 10).map((percent, index) => ({
+          rank: index === 0 ? "1st" : index === 1 ? "2nd" : index === 2 ? "3rd" : `#${index + 1}`,
+          amount: Math.floor((topPrize * percent) / 100),
+          percent,
+        }));
   const slotText = formatSlots(t.mode ?? "BR_SOLO", t.filledSlots ?? 0, t.maxSlots ?? 48);
 
   const { user } = useAuth();
@@ -80,6 +90,8 @@ export function TournamentCard({ t }: { t: any }) {
   const modeBadgeClass = t.mode?.startsWith("BR_") ? "fs-badge fs-badge-red"
     : t.mode?.startsWith("CS_") ? "fs-badge fs-badge-gold"
     : "fs-badge fs-badge-green";
+  const canJoin = t.status === "UPCOMING" && !full && !(isFree && nextAt);
+  const hasResults = t.status === "COMPLETED" || t.status === "PENDING_RESULTS";
 
   return (
     <div className="fs-card">
@@ -138,21 +150,39 @@ export function TournamentCard({ t }: { t: any }) {
           </div>
           <div style={{ borderRight: '0.5px solid var(--fs-border)' }}>
             <p className="text-[9px] uppercase font-semibold" style={{ color: 'var(--fs-text-3)' }}>
-              {isWTA ? "Winner Gets" : "Prize Pool"}
+              {isWTA ? "Winner Gets" : isPlacementPrize ? "Top Prize" : "Prize Pool"}
             </p>
             <p className="text-[13px] font-bold mt-0.5" style={{ color: 'var(--fs-text-1)' }}>
-              {isFree ? "" : "~"}Rs {topPrize}
+              {isFree ? "" : "~"}Rs {isPlacementPrize && rankPreview[0]?.amount ? rankPreview[0].amount : topPrize}
             </p>
           </div>
           <div>
             <p className="text-[9px] uppercase font-semibold" style={{ color: 'var(--fs-text-3)' }}>
-              {isWTA ? "Mode" : "Per Kill"}
+              {isWTA ? "Mode" : isPlacementPrize ? "Payout" : isKillPrize ? "Per Kill" : "Reward"}
             </p>
             <p className="text-[13px] font-bold mt-0.5" style={{ color: 'var(--fs-text-1)' }}>
-              {isWTA ? "WTA" : `Rs ${perKill}`}
+              {isWTA ? "WTA" : isPlacementPrize ? TournamentTypeLabels[type] : isKillPrize ? `Rs ${perKill}` : `Rs ${topPrize}`}
             </p>
           </div>
         </div>
+
+        {isWTA && (
+          <div className="mt-3 rounded-lg border px-3 py-2 text-center" style={{ borderColor: 'rgba(255,193,7,0.45)', background: 'rgba(255,193,7,0.1)' }}>
+            <p className="text-[10px] uppercase font-bold tracking-[0.18em]" style={{ color: 'var(--fs-gold)' }}>Winner Takes All</p>
+            <p className="mt-0.5 text-lg font-black" style={{ color: 'var(--fs-text-1)' }}>Win ~Rs {topPrize} in one match</p>
+          </div>
+        )}
+
+        {isPlacementPrize && rankPreview.length > 0 && (
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            {rankPreview.slice(0, 3).map((prize: any) => (
+              <div key={prize.rank} className="rounded-lg px-2 py-2 text-center" style={{ background: 'var(--fs-surface-1)', border: '0.5px solid var(--fs-border)' }}>
+                <p className="text-[9px] uppercase font-semibold" style={{ color: 'var(--fs-text-3)' }}>{prize.rank}</p>
+                <p className="text-xs font-bold" style={{ color: 'var(--fs-gold)' }}>Rs {prize.amount}</p>
+              </div>
+            ))}
+          </div>
+        )}
 
         {isFree && nextAt && (
           <div className="mt-2 rounded-md px-3 py-2 text-xs font-medium" style={{ background: 'var(--fs-amber-dim)', color: 'var(--fs-amber)' }}>
@@ -167,11 +197,11 @@ export function TournamentCard({ t }: { t: any }) {
           <Link
             href={`/tournaments/${t.id}`}
             className={`fs-btn fs-btn-sm ${
-              full || (isFree && nextAt) ? 'fs-btn-outline opacity-50 pointer-events-none' : 'fs-btn-primary'
+              canJoin || hasResults ? 'fs-btn-primary' : 'fs-btn-outline opacity-70'
             }`}
           >
-            {!isFree && <span>🪙 Rs {playerFee}</span>}
-            {full ? "Full" : isFree && nextAt ? "Used" : isFree ? "JOIN →" : "JOIN →"}
+            {canJoin && !isFree && <span>🪙 Rs {playerFee}</span>}
+            {hasResults ? "View Result" : full ? "Full" : isFree && nextAt ? "Used" : canJoin ? "JOIN →" : t.status}
           </Link>
         </div>
       </div>

@@ -110,6 +110,24 @@ const TOURNAMENT_DETAIL_SELECT = {
       prizeEarned: true,
     },
   },
+  results: {
+    select: {
+      id: true,
+      placement: true,
+      kills: true,
+      verified: true,
+      note: true,
+      createdAt: true,
+      submitter: {
+        select: {
+          id: true,
+          name: true,
+          profile: { select: { ign: true, freefireUid: true } },
+        },
+      },
+    },
+    orderBy: [{ verified: "desc" }, { placement: "asc" }, { kills: "desc" }, { createdAt: "asc" }],
+  },
 } as const;
 
 export interface RoomDetails {
@@ -204,6 +222,7 @@ export class TournamentsService implements OnModuleInit {
   list(filters: {
     mode?: GameMode;
     status?: TournamentStatus;
+    statuses?: TournamentStatus[];
     type?: TournamentType;
     minFee?: number;
     maxFee?: number;
@@ -221,6 +240,7 @@ export class TournamentsService implements OnModuleInit {
   private loadTournamentList(filters: {
     mode?: GameMode;
     status?: TournamentStatus;
+    statuses?: TournamentStatus[];
     type?: TournamentType;
     minFee?: number;
     maxFee?: number;
@@ -228,7 +248,8 @@ export class TournamentsService implements OnModuleInit {
   }) {
     const where: any = {};
     if (filters.mode) where.mode = filters.mode;
-    if (filters.status) where.status = filters.status;
+    if (filters.statuses?.length) where.status = { in: filters.statuses };
+    else if (filters.status) where.status = filters.status;
     if (filters.type) where.type = filters.type;
     if (filters.minFee !== undefined || filters.maxFee !== undefined) {
       where.entryFeeNpr = {};
@@ -244,7 +265,7 @@ export class TournamentsService implements OnModuleInit {
   }
 
   async getOne(id: string, userId?: string, role?: Role) {
-    const t = await this.cache.getStaleWhileRevalidate(
+    const t: any = await this.cache.getStaleWhileRevalidate(
       tournamentDetailCacheKey(id),
       TOURNAMENT_DETAIL_SOFT_TTL_SECONDS,
       TOURNAMENT_DETAIL_HARD_TTL_SECONDS,
@@ -254,7 +275,7 @@ export class TournamentsService implements OnModuleInit {
 
     let canSeeRoom = role === "ADMIN";
     if (!canSeeRoom && userId) {
-      const p = t.participants.find((x) => x.userId === userId);
+      const p = t.participants.find((x: any) => x.userId === userId);
       canSeeRoom = !!(p && p.paid);
     }
     if (!canSeeRoom) {
@@ -266,7 +287,7 @@ export class TournamentsService implements OnModuleInit {
   private loadTournamentDetail(id: string) {
     return this.prisma.tournament.findUnique({
       where: { id },
-      select: TOURNAMENT_DETAIL_SELECT,
+      select: TOURNAMENT_DETAIL_SELECT as any,
     });
   }
 
@@ -509,7 +530,9 @@ export class TournamentsService implements OnModuleInit {
 
   @Cron(CronExpression.EVERY_5_MINUTES)
   async autoMoveLiveTournamentsToResults() {
+    if (!this.config.getBool("AUTO_STATUS_FLOW_ENABLED")) return;
     const timeoutMins = this.config.getNumber("TOURNAMENT_LIVE_TO_PENDING_RESULTS_MINS");
+    if (timeoutMins <= 0) return;
     const cutoff = new Date(Date.now() - timeoutMins * 60_000);
     const liveTournaments = await this.prisma.tournament.findMany({
       where: { status: TournamentStatus.LIVE },
@@ -982,6 +1005,7 @@ export class TournamentsService implements OnModuleInit {
   ) {
     const results = winners.map((w) => ({
       userId: w.userId,
+      placement: w.placement,
       kills: w.kills ?? 0,
       gotBooyah: w.gotBooyah ?? w.placement === 1,
     }));
@@ -1038,6 +1062,7 @@ export class TournamentsService implements OnModuleInit {
   private listCacheKey(filters: {
     mode?: GameMode;
     status?: TournamentStatus;
+    statuses?: TournamentStatus[];
     type?: TournamentType;
     minFee?: number;
     maxFee?: number;
@@ -1046,6 +1071,7 @@ export class TournamentsService implements OnModuleInit {
     return `${TOURNAMENT_LIST_CACHE_PREFIX}${JSON.stringify({
       mode: filters.mode ?? null,
       status: filters.status ?? null,
+      statuses: filters.statuses ?? null,
       type: filters.type ?? null,
       minFee: filters.minFee ?? null,
       maxFee: filters.maxFee ?? null,
@@ -1063,6 +1089,7 @@ export class TournamentsService implements OnModuleInit {
       this.list({}),
       this.list({ status: TournamentStatus.UPCOMING }),
       this.list({ status: TournamentStatus.LIVE }),
+      this.list({ statuses: [TournamentStatus.UPCOMING, TournamentStatus.LIVE], limit: 8 }),
     ]);
   }
 }

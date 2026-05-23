@@ -186,7 +186,9 @@ export default function ChallengesPage() {
                     </span>
                   </div>
                   <div className="flex gap-2">
-                    <Link href={`/challenges/${c.id}`} className="fs-btn fs-btn-outline fs-btn-sm">Details</Link>
+                    <Link href={`/challenges/${c.id}`} className="fs-btn fs-btn-outline fs-btn-sm">
+                      {c.status === "COMPLETED" ? "View Result" : "Details"}
+                    </Link>
                     {c.status === "OPEN" && user?.id !== c.creatorId && (
                       <button
                         disabled={joiningId === c.id}

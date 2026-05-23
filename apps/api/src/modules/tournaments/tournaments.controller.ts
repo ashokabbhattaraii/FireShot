@@ -40,6 +40,7 @@ export class TournamentsController {
   list(
     @Query("mode") mode?: GameMode,
     @Query("status") status?: TournamentStatus,
+    @Query("statuses") statuses?: string,
     @Query("type") type?: TournamentType,
     @Query("minFee") minFee?: string,
     @Query("maxFee") maxFee?: string,
@@ -48,6 +49,12 @@ export class TournamentsController {
     return this.svc.list({
       mode,
       status,
+      statuses: statuses
+        ? statuses
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean) as TournamentStatus[]
+        : undefined,
       type,
       minFee: minFee ? parseInt(minFee, 10) : undefined,
       maxFee: maxFee ? parseInt(maxFee, 10) : undefined,

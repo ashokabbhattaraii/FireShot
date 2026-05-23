@@ -10,9 +10,7 @@ import {
   calculatePrize,
   getDefaultTournamentType,
   isWinnerTakesAllOnly,
-  GAME_MODE_LIMITS,
-  formatSlots,
-  type PrizeGameMode,
+  TournamentTypeLabels,
 } from "@fireslot/shared";
 import { fmtDate, npr } from "@/lib/utils";
 import { ButtonLoading, CardSkeleton, EmptyState, PageHeader, StatusBadge } from "@/components/ui";
@@ -268,6 +266,9 @@ export default function AdminTournaments() {
   }
 
   const typeLocked = isWinnerTakesAllOnly(form.mode);
+  const formIsWTA = form.type === "SOLO_1ST" || typeLocked;
+  const formIsPlacementPrize = form.type === "SOLO_TOP3" || form.type === "SQUAD_TOP10";
+  const formIsKillPrize = form.type === "KILL_RACE" || form.type === "COMBO";
 
   const localPreview = useMemo(() => {
     const fee = Number(form.entryFeeNpr);
@@ -279,6 +280,7 @@ export default function AdminTournaments() {
       tournamentType: form.type,
     });
   }, [form.entryFeeNpr, form.maxSlots, form.type]);
+  const prizePreview = localPreview ?? preview;
 
   return (
     <div>
@@ -357,14 +359,19 @@ export default function AdminTournaments() {
             />
             <div className="mt-1 flex items-center justify-between text-xs text-white/70">
               <span>Rs {form.entryFeeNpr}</span>
-              {(preview || localPreview) && !typeLocked && (
+              {prizePreview && formIsWTA && (
                 <span>
-                  Per Kill <b className="text-yellow-300">Rs {preview?.perKillReward ?? localPreview?.perKillReward ?? 0}</b> · Booyah <b className="text-neon-cyan">Rs {preview?.booyahPrize ?? localPreview?.booyahPrize ?? 0}</b>
+                  Winner gets <b className="text-yellow-300">Rs {prizePreview.netPool}</b>
                 </span>
               )}
-              {typeLocked && localPreview && (
+              {prizePreview && formIsPlacementPrize && (
                 <span>
-                  Winner gets <b className="text-yellow-300">Rs {localPreview.netPool}</b>
+                  {TournamentTypeLabels[form.type as keyof typeof TournamentTypeLabels]} · Top prize <b className="text-yellow-300">Rs {prizePreview.prizeBreakdown?.[0]?.amount ?? 0}</b>
+                </span>
+              )}
+              {prizePreview && formIsKillPrize && (
+                <span>
+                  Per Kill <b className="text-yellow-300">Rs {prizePreview.perKillReward ?? 0}</b> · Booyah <b className="text-neon-cyan">Rs {prizePreview.booyahPrize ?? 0}</b>
                 </span>
               )}
             </div>
@@ -433,27 +440,35 @@ export default function AdminTournaments() {
             </div>
           </div>
 
-          {preview && (
+          {prizePreview && (
             <div className="rounded-lg border border-neon/40 bg-neon/5 p-3 text-sm">
-              <p className="label text-neon">If {preview.actualPlayers} players join</p>
+              <p className="label text-neon">If {prizePreview.estimatedFor ?? prizePreview.actualPlayers} players join</p>
               <p className="mt-1 text-white/80">
-                Pool <b>{npr(preview.grossPool)}</b> →
-                Platform <b>{npr(preview.platformCut)}</b> ({preview.systemFeePercent}%) →
-                Net <b>{npr(preview.netPool)}</b>
+                Pool <b>{npr(prizePreview.grossPool)}</b> →
+                Platform <b>{npr(prizePreview.platformFee ?? prizePreview.platformCut)}</b> ({prizePreview.systemFeePercent ?? 20}%) →
+                Net <b>{npr(prizePreview.netPool)}</b>
               </p>
-              {(form.mode === "CS_4V4" || form.mode === "LW_1V1" || form.mode === "LW_2V2") ? (
+              {formIsWTA ? (
                 <p className="mt-1 text-white/80">
-                  <b className="text-yellow-300">Winner Takes All:</b> Winning team splits {npr(preview.netPool)} equally
-                  {preview.actualPlayers > 0 && (
-                    <span> = <b className="text-yellow-300">{npr(Math.floor(preview.netPool / (preview.actualPlayers / 2)))}</b> per winning player</span>
-                  )}
+                  <b className="text-yellow-300">Winner Takes All:</b> 1st place gets {npr(prizePreview.netPool)}
+                </p>
+              ) : formIsPlacementPrize ? (
+                <div className="mt-2 grid grid-cols-3 gap-2">
+                  {(prizePreview.prizeBreakdown ?? []).slice(0, form.type === "SQUAD_TOP10" ? 10 : 3).map((prize: any) => (
+                    <div key={prize.rank} className="rounded-lg border border-white/10 bg-black/20 p-2 text-center">
+                      <p className="text-[10px] text-white/50">{prize.rank}</p>
+                      <p className="font-bold text-yellow-300">{npr(prize.amount)}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : formIsKillPrize ? (
+                <p className="mt-1 text-white/80">
+                  Per Kill: <b className="text-neon">{npr(prizePreview.perKillReward)}</b> · Booyah: <b className="text-neon-cyan">{npr(prizePreview.booyahPrize)}</b>
                 </p>
               ) : (
-                <p className="mt-1 text-white/80">
-                  Per Kill: <b className="text-neon">{npr(preview.perKillReward)}</b> · Booyah: <b className="text-neon-cyan">{npr(preview.booyahPrize)}</b>
-                </p>
+                null
               )}
-              <p className="mt-1 text-xs text-white/50">{preview.scalingNote}</p>
+              <p className="mt-1 text-xs text-white/50">{prizePreview.scalingNote ?? "Pool scales with actual players."}</p>
             </div>
           )}
 
@@ -535,8 +550,22 @@ export default function AdminTournaments() {
               </div>
               <div className="mt-4 grid grid-cols-4 gap-2 text-xs">
                 <Mini label="Fee" value={npr(t.entryFeeNpr)} />
-                <Mini label="Per Kill" value={npr(t.perKillReward ?? 0)} />
-                <Mini label="Booyah" value={npr(t.booyahPrize ?? 0)} />
+                <Mini
+                  label={t.type === "SOLO_1ST" ? "Winner Gets" : t.type === "SOLO_TOP3" || t.type === "SQUAD_TOP10" ? "Top Prize" : "Per Kill"}
+                  value={t.type === "SOLO_1ST"
+                    ? npr(t.prizeStructure?.netPool ?? t.prizePoolNpr ?? 0)
+                    : t.type === "SOLO_TOP3" || t.type === "SQUAD_TOP10"
+                      ? npr(t.prizeStructure?.prizeBreakdown?.[0]?.amount ?? 0)
+                      : npr(t.perKillReward ?? 0)
+                  }
+                />
+                <Mini
+                  label={t.type === "SOLO_TOP3" || t.type === "SQUAD_TOP10" ? "Payout" : "Booyah"}
+                  value={t.type === "SOLO_TOP3" || t.type === "SQUAD_TOP10"
+                    ? TournamentTypeLabels[t.type as keyof typeof TournamentTypeLabels]
+                    : npr(t.booyahPrize ?? 0)
+                  }
+                />
                 <Mini
                   label={GameModeTeamSize[t.mode as keyof typeof GameModeTeamSize] > 1 ? "Teams" : "Players"}
                   value={GameModeTeamSize[t.mode as keyof typeof GameModeTeamSize] > 1

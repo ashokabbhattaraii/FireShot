@@ -129,13 +129,13 @@ export class SystemConfigService implements OnModuleInit {
       label: "Auto Status Flow Enabled",
     },
     AUTO_START_MINS_BEFORE: {
-      value: "0",
+      value: "5",
       type: "NUMBER",
       category: "SCHEDULE",
       label: "Auto UPCOMING→LIVE (mins after scheduled time, 0=disabled)",
     },
     PENDING_RESULTS_TO_COMPLETED_MINS: {
-      value: "0",
+      value: "180",
       type: "NUMBER",
       category: "SCHEDULE",
       label: "Auto PENDING_RESULTS→COMPLETED (mins, 0=disabled)",

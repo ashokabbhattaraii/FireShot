@@ -13,6 +13,7 @@ import {
   Trophy, AlertTriangle, Settings, BookOpen, ShieldCheck, X, ArrowLeft,
 } from "lucide-react";
 import Link from "next/link";
+import { isWinnerTakesAllOnly, PRIZE_SPLITS, TournamentTypeLabels, type TournamentType } from "@fireslot/shared";
 
 interface MatchRules {
   entryFee: number;
@@ -145,6 +146,20 @@ export default function TournamentDetailClient() {
 
   const requiredCaptainRosterCount =
     t.mode === "CS_4V4" ? 4 : t.mode === "LW_2V2" ? 2 : t.mode === "LW_1V1" ? 1 : 0;
+  const canViewResult = t.status === "COMPLETED" || t.status === "PENDING_RESULTS";
+  const type = (t.type ?? "SOLO_1ST") as TournamentType;
+  const isWTA = type === "SOLO_1ST" || isWinnerTakesAllOnly(t.mode ?? "");
+  const isPlacementPrize = type === "SOLO_TOP3" || type === "SQUAD_TOP10";
+  const isKillPrize = type === "KILL_RACE" || type === "COMBO";
+  const netPool = t.prizeStructure?.netPool ?? t.prizePoolNpr ?? 0;
+  const rankPreview =
+    t.prizeStructure?.prizeBreakdown?.length
+      ? t.prizeStructure.prizeBreakdown
+      : (PRIZE_SPLITS[type] ?? []).map((percent: number, index: number) => ({
+          rank: index === 0 ? "1st" : index === 1 ? "2nd" : index === 2 ? "3rd" : `#${index + 1}`,
+          amount: Math.floor((netPool * percent) / 100),
+          percent,
+        }));
 
   const rules: MatchRules = (t.matchRules as MatchRules) ?? {
     entryFee: t.entryFeeNpr,
@@ -179,7 +194,7 @@ export default function TournamentDetailClient() {
           >
             <ArrowLeft size={18} style={{ color: 'var(--fs-text-1)' }} />
           </button>
-          <span className={`fs-badge ${t.status === 'ONGOING' ? 'fs-badge-green' : t.status === 'COMPLETED' ? 'fs-badge-gray' : 'fs-badge-amber'}`}>
+          <span className={`fs-badge ${t.status === 'LIVE' ? 'fs-badge-green' : t.status === 'COMPLETED' ? 'fs-badge-gray' : 'fs-badge-amber'}`}>
             {t.status}
           </span>
         </div>
@@ -194,19 +209,82 @@ export default function TournamentDetailClient() {
         {/* Match Info Chips */}
         <div className="mt-4 grid grid-cols-4 gap-2">
           <InfoChip label="Entry" value={`Rs ${rules.entryFee}`} />
-           {(t.mode === "CS_4V4" || t.mode === "LW_1V1" || t.mode === "LW_2V2") ? (
+           {isWTA ? (
              <>
-               <InfoChip label="Fee/Team" value={`Rs ${t.entryFeeNpr}`} />
-               <InfoChip label="Winner Prize" value={t.prizeStructure?.netPool ? `Rs ${t.prizeStructure.netPool}` : "TBD"} />
+               <InfoChip label={t.mode?.startsWith("CS_") || t.mode?.startsWith("LW_") ? "Fee/Team" : "Entry"} value={`Rs ${t.entryFeeNpr}`} />
+               <InfoChip label="Winner Prize" value={netPool ? `Rs ${netPool}` : "TBD"} />
+             </>
+           ) : isPlacementPrize ? (
+             <>
+               <InfoChip label="Top Prize" value={rankPreview[0]?.amount ? `Rs ${rankPreview[0].amount}` : "TBD"} />
+               <InfoChip label="Payout" value={TournamentTypeLabels[type]} />
              </>
            ) : (
              <>
-               <InfoChip label="Per Kill" value={`Rs ${rules.perKillReward}`} />
-               <InfoChip label="Booyah" value={`Rs ${rules.booyahPrize}`} />
+               <InfoChip label={isKillPrize ? "Per Kill" : "Prize"} value={`Rs ${isKillPrize ? rules.perKillReward : netPool}`} />
+               <InfoChip label="Booyah" value={`Rs ${isKillPrize ? rules.booyahPrize : 0}`} />
              </>
            )}
           <InfoChip label="Players" value={`${t.filledSlots}/${t.maxSlots}`} />
         </div>
+
+        {isWTA && (
+          <Section title="WINNER TAKES ALL" accent="var(--fs-gold)" icon={<Trophy size={14} />}>
+            <div className="rounded-xl border px-4 py-3 text-center" style={{ borderColor: "rgba(255,193,7,0.45)", background: "rgba(255,193,7,0.1)" }}>
+              <p className="text-[10px] uppercase font-bold tracking-[0.18em]" style={{ color: "var(--fs-gold)" }}>1st place prize</p>
+              <p className="mt-1 text-2xl font-black" style={{ color: "var(--fs-text-1)" }}>Rs {netPool || "TBD"}</p>
+            </div>
+          </Section>
+        )}
+
+        {isPlacementPrize && rankPreview.length > 0 && (
+          <Section title="PRIZE DISTRIBUTION" accent="var(--fs-gold)" icon={<Trophy size={14} />}>
+            <div className="grid grid-cols-3 gap-2">
+              {rankPreview.slice(0, type === "SQUAD_TOP10" ? 10 : 3).map((prize: any) => (
+                <div key={prize.rank} className="rounded-lg px-2 py-2 text-center" style={{ background: "var(--fs-surface-1)", border: "0.5px solid var(--fs-border)" }}>
+                  <p className="text-[9px] uppercase font-semibold" style={{ color: "var(--fs-text-3)" }}>{prize.rank}</p>
+                  <p className="text-xs font-bold" style={{ color: "var(--fs-gold)" }}>Rs {prize.amount}</p>
+                </div>
+              ))}
+            </div>
+          </Section>
+        )}
+
+        {canViewResult && (
+          <Section title="MATCH RESULT" accent="var(--fs-gold)" icon={<Trophy size={14} />}>
+            {t.results?.length ? (
+              <div className="space-y-2">
+                {t.results.map((result: any, index: number) => {
+                  const playerName =
+                    result.submitter?.profile?.ign ??
+                    result.submitter?.name ??
+                    `Player ${index + 1}`;
+                  return (
+                    <div
+                      key={result.id}
+                      className="flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-xs"
+                      style={{ background: "var(--fs-surface-1)", border: "0.5px solid var(--fs-border)" }}
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold" style={{ color: "var(--fs-text-1)" }}>
+                          {result.placement ? `#${result.placement} ` : ""}{playerName}
+                        </p>
+                        <p style={{ color: "var(--fs-text-3)" }}>
+                          {result.kills ?? 0} kills · {result.verified ? "Verified" : "Pending verification"}
+                        </p>
+                      </div>
+                      {result.verified && <span className="fs-badge fs-badge-green">Result</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-xs" style={{ color: "var(--fs-text-3)" }}>
+                Results are being verified by the admin team.
+              </p>
+            )}
+          </Section>
+        )}
 
         {/* Rules Sections */}
         <Section title="ELIGIBILITY" accent="var(--fs-green)" icon={<ShieldCheck size={14} />}>
@@ -280,6 +358,12 @@ export default function TournamentDetailClient() {
       >
         <button
           onClick={() => {
+            if (canViewResult) {
+              document
+                .querySelector("[data-section='MATCH RESULT']")
+                ?.scrollIntoView({ behavior: "smooth" });
+              return;
+            }
             if (requiredCaptainRosterCount > 0) {
               setShowRosterForm(true);
               return;
@@ -288,23 +372,25 @@ export default function TournamentDetailClient() {
           }}
           disabled={
             joining ||
-            t.status !== "UPCOMING" ||
-            alreadyJoined ||
-            !isEnabled("TOURNAMENT_JOIN_ENABLED") ||
+            (!canViewResult && t.status !== "UPCOMING") ||
+            (!canViewResult && alreadyJoined) ||
+            (!canViewResult && !isEnabled("TOURNAMENT_JOIN_ENABLED")) ||
             (getTeamSizeFromTournament(t) > 1 && !requiredCaptainRosterCount && teammates.some(tm => !/^\d{9,12}$/.test(tm.freefireUid) || !tm.igName.trim()))
           }
           className="fs-btn fs-btn-primary fs-btn-full"
           style={{
             height: '50px',
             fontSize: '15px',
-            background: alreadyJoined ? 'var(--fs-green)' : undefined,
-            opacity: (t.status !== "UPCOMING" && !alreadyJoined) ? 0.5 : 1,
+            background: alreadyJoined && !canViewResult ? 'var(--fs-green)' : undefined,
+            opacity: (!canViewResult && t.status !== "UPCOMING" && !alreadyJoined) ? 0.5 : 1,
           }}
         >
           <ButtonLoading loading={joining} loadingText="Joining...">
-            {alreadyJoined
-              ? "Already Joined ✓"
-              : t.status !== "UPCOMING"
+            {canViewResult
+                ? "View Result"
+              : alreadyJoined
+                ? "Already Joined ✓"
+                : t.status !== "UPCOMING"
                 ? t.status
                 : requiredCaptainRosterCount > 0
                   ? `JOIN TEAM · Rs ${t.entryFeeNpr}/team`

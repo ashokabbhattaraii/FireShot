@@ -4,7 +4,7 @@ import Link from "next/link";
 import { api } from "@/lib/api";
 import { Trophy, Users, Coins, ChevronDown, MapPin, Bomb } from "lucide-react";
 import { fmtDate, npr } from "@/lib/utils";
-import { calculatePrize, formatSlots, isWinnerTakesAllOnly } from "@fireslot/shared";
+import { calculatePrize, formatSlots, isWinnerTakesAllOnly, PRIZE_SPLITS, TournamentTypeLabels, type TournamentType } from "@fireslot/shared";
 import { CardSkeleton, LoadingState, StatusBadge } from "@/components/ui";
 
 type Tab = "ONGOING" | "UPCOMING" | "RESULTS";
@@ -86,24 +86,37 @@ function TournamentRow({
   t, expanded, toggle,
 }: { t: any; expanded: boolean; toggle: () => void }) {
   const ps = t.prizeStructure ?? {};
-  const isWTA = isWinnerTakesAllOnly(t.mode ?? "");
+  const type = (t.type ?? "SOLO_1ST") as TournamentType;
+  const isWTA = type === "SOLO_1ST" || isWinnerTakesAllOnly(t.mode ?? "");
+  const isPlacementPrize = type === "SOLO_TOP3" || type === "SQUAD_TOP10";
+  const isKillPrize = type === "KILL_RACE" || type === "COMBO";
 
   // Fix: never show 0 — compute client-side if backend returned 0
   const computed = useMemo(() => {
     const existingPerKill = t.perKillReward ?? ps.perKillReward ?? 0;
-    if (existingPerKill > 0 || isWTA) return null;
+    if (existingPerKill > 0 || isWTA || isPlacementPrize) return null;
     return calculatePrize({
       entryFee: t.entryFeeNpr ?? 0,
       playerCount: t.maxSlots || 48,
-      tournamentType: t.type ?? "SOLO_TOP3",
+      tournamentType: type,
     });
-  }, [t, ps, isWTA]);
+  }, [t, ps, isWTA, isPlacementPrize, type]);
 
-  const perKill = computed?.perKillReward ?? t.perKillReward ?? ps.perKillReward ?? 0;
-  const booyah = computed?.booyahPrize ?? t.booyahPrize ?? ps.booyahPrize ?? 0;
+  const perKill = isKillPrize ? computed?.perKillReward ?? t.perKillReward ?? ps.perKillReward ?? 0 : 0;
+  const booyah = isKillPrize ? computed?.booyahPrize ?? t.booyahPrize ?? ps.booyahPrize ?? 0 : 0;
   const grossPool = computed?.grossPool ?? ps.grossPool ?? t.entryFeeNpr * t.maxSlots;
   const netPool = computed?.netPool ?? ps.netPool ?? grossPool;
+  const rankPreview =
+    ps.prizeBreakdown?.length
+      ? ps.prizeBreakdown
+      : (PRIZE_SPLITS[type] ?? []).map((percent: number, index: number) => ({
+          rank: index === 0 ? "1st" : index === 1 ? "2nd" : index === 2 ? "3rd" : `#${index + 1}`,
+          amount: Math.floor((netPool * percent) / 100),
+          percent,
+        }));
   const slotText = formatSlots(t.mode ?? "BR_SOLO", t.filledSlots ?? 0, t.maxSlots ?? 48);
+  const canJoin = t.status === "UPCOMING" && (t.filledSlots ?? 0) < (t.maxSlots ?? 0);
+  const isResult = t.status === "COMPLETED" || t.status === "PENDING_RESULTS";
 
   return (
     <div className="rounded-2xl border border-border bg-gradient-to-br from-[#1a1233] via-[#0f0a26] to-[#1a1233] overflow-hidden">
@@ -138,26 +151,47 @@ function TournamentRow({
             <div className="text-xs text-white">{fmtDate(t.dateTime)}</div>
           </Cell>
           <button onClick={toggle} className="text-left">
-            <Cell label={isWTA ? "WINNER GETS" : "PRIZE POOL"}>
+            <Cell label={isWTA ? "WINNER GETS" : isPlacementPrize ? "TOP PRIZE" : "PRIZE POOL"}>
               <div className="flex items-center gap-1 text-neon font-bold text-sm">
-                ~{npr(netPool)} <ChevronDown size={12} className={expanded ? "rotate-180" : ""} />
+                ~{npr(isPlacementPrize && rankPreview[0]?.amount ? rankPreview[0].amount : netPool)} <ChevronDown size={12} className={expanded ? "rotate-180" : ""} />
               </div>
             </Cell>
           </button>
-          <Cell label={isWTA ? "MODE" : "PER KILL"}>
+          <Cell label={isWTA ? "MODE" : isPlacementPrize ? "PAYOUT" : isKillPrize ? "PER KILL" : "REWARD"}>
             <div className="text-neon-cyan font-bold text-sm">
-              {isWTA ? "Winner Takes All" : npr(perKill)}
+              {isWTA ? "Winner Takes All" : isPlacementPrize ? TournamentTypeLabels[type] : isKillPrize ? npr(perKill) : npr(netPool)}
             </div>
           </Cell>
         </div>
+
+        {isWTA && (
+          <div className="mt-2 rounded-lg border border-yellow-400/40 bg-yellow-400/10 p-3 text-center">
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-yellow-300">Winner Takes All</p>
+            <p className="mt-1 text-lg font-black text-white">Win ~{npr(netPool)} in one match</p>
+          </div>
+        )}
+
+        {isPlacementPrize && rankPreview.length > 0 && (
+          <div className="mt-2 grid grid-cols-3 gap-2">
+            {rankPreview.slice(0, 3).map((prize: any) => (
+              <div key={prize.rank} className="rounded-lg border border-white/10 bg-black/25 p-2 text-center">
+                <p className="text-[9px] uppercase text-white/50">{prize.rank}</p>
+                <p className="text-xs font-bold text-yellow-300">{npr(prize.amount)}</p>
+              </div>
+            ))}
+          </div>
+        )}
 
         {expanded && (
           <div className="mt-2 rounded-lg border border-border bg-black/40 p-3 text-xs text-white/80 space-y-1">
             <Row label="Gross Pool" value={npr(grossPool)} />
             <Row label={`Platform Fee (${ps.systemFeePercent ?? 20}%)`} value={`- ${npr(ps.platformCut ?? 0)}`} />
             <Row label="Net Pool" value={npr(ps.netPool ?? 0)} bold />
-            <Row label="Per Kill Reward" value={npr(perKill)} accent />
-            <Row label="Booyah Prize" value={npr(booyah)} accent />
+            {rankPreview.length > 0 && rankPreview.map((prize: any) => (
+              <Row key={prize.rank} label={prize.rank} value={npr(prize.amount)} accent />
+            ))}
+            {isKillPrize && <Row label="Per Kill Reward" value={npr(perKill)} accent />}
+            {isKillPrize && <Row label="Booyah Prize" value={npr(booyah)} accent />}
             <p className="mt-2 text-[10px] text-white/50">
               {ps.scalingNote ?? "Pool scales with actual players. Entry fee is your only risk."}
             </p>
@@ -170,9 +204,11 @@ function TournamentRow({
           </span>
           <Link
             href={`/tournaments/${t.id}`}
-            className="rounded-full bg-gradient-to-r from-rose-500 to-pink-500 px-4 py-1.5 text-xs font-semibold text-white shadow-lg flex items-center gap-1"
+            className={`rounded-full px-4 py-1.5 text-xs font-semibold text-white shadow-lg flex items-center gap-1 ${
+              canJoin || isResult ? "bg-gradient-to-r from-rose-500 to-pink-500" : "border border-white/15 bg-white/10 text-white/70"
+            }`}
           >
-            <Coins size={12} /> Rs {t.entryFeeNpr} JOIN →
+            <Coins size={12} /> {isResult ? "View Result" : canJoin ? `Rs ${t.entryFeeNpr} JOIN →` : t.status}
           </Link>
         </div>
       </div>

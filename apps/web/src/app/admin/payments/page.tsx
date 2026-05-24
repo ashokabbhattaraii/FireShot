@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { api, FILE_BASE } from "@/lib/api";
+import { api, resolveFileUrl } from "@/lib/api";
 import { fmtDate, npr } from "@/lib/utils";
 import { ButtonLoading, CardGridSkeleton, EmptyState, PageHeader, StatusBadge } from "@/components/ui";
 import { WithdrawalReviewPanel } from "@/components/admin/WithdrawalReviewPanel";
@@ -71,13 +71,13 @@ export default function AdminPayments() {
             </p>
             {p.proofUrl && (
               <a
-                href={`${FILE_BASE}${p.proofUrl}`}
+                href={resolveFileUrl(p.proofUrl)}
                 target="_blank"
                 rel="noreferrer"
                 className="block mt-2"
               >
                 <img
-                  src={`${FILE_BASE}${p.proofUrl}`}
+                  src={resolveFileUrl(p.proofUrl)}
                   alt="proof"
                   className="rounded-md max-h-48 border border-border"
                 />

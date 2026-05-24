@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api, FILE_BASE } from "@/lib/api";
+import { api, resolveFileUrl } from "@/lib/api";
 import { fmtDate, npr } from "@/lib/utils";
 
 type ReviewKind = "withdrawal" | "payment";
@@ -204,8 +204,8 @@ export function WithdrawalReviewPanel({ withdrawalId, kind = "withdrawal", onClo
                 </div>
               </div>
               {kind === "payment" && item?.proofUrl && (
-                <a href={`${FILE_BASE}${item.proofUrl}`} target="_blank" rel="noreferrer" style={{ display: "block", marginTop: 14 }}>
-                  <img src={`${FILE_BASE}${item.proofUrl}`} alt="proof" style={{ width: "100%", borderRadius: 14, border: "1px solid var(--fs-border)", maxHeight: 360, objectFit: "cover" }} />
+                <a href={resolveFileUrl(item.proofUrl)} target="_blank" rel="noreferrer" style={{ display: "block", marginTop: 14 }}>
+                  <img src={resolveFileUrl(item.proofUrl)} alt="proof" style={{ width: "100%", borderRadius: 14, border: "1px solid var(--fs-border)", maxHeight: 360, objectFit: "cover" }} />
                 </a>
               )}
             </section>

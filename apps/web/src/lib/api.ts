@@ -135,3 +135,11 @@ export const auth = {
 
 export const API_BASE = API;
 export const FILE_BASE = API.replace(/\/api$/, "");
+
+export function resolveFileUrl(fileUrl: string | null | undefined): string {
+  const value = (fileUrl ?? "").trim();
+  if (!value) return "";
+  if (/^(?:https?:)?\/\//i.test(value) || value.startsWith("data:")) return value;
+  const path = value.startsWith("/") ? value : `/${value}`;
+  return `${FILE_BASE}${path}`;
+}

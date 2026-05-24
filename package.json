@@ -8,6 +8,8 @@
     "dev": "turbo run dev",
     "build": "turbo run build",
     "lint": "turbo run lint",
+    "prepare": "bash scripts/setup-git-hooks.sh",
+    "local:cicd": "bash scripts/local-cicd.sh",
     "apk:debug": "pnpm --filter @fireslot/web build:apk",
     "apk:release": "pnpm --filter @fireslot/web build:apk:release",
     "db:generate": "pnpm --filter @fireslot/db generate",

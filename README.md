@@ -124,6 +124,16 @@ pnpm db:seed      # seed admin + sample tournaments
 pnpm db:studio    # Prisma Studio GUI
 ```
 
+### Local Commit-Time CI/CD
+
+`pnpm install` configures the repo to use `.githooks/pre-commit`. When you commit staged changes that touch the app or release pipeline, the hook runs `pnpm build`, rebuilds the Android APK, updates `public/downloads/latest.json`, and stages the refreshed APK artifacts before the commit is created.
+
+If you want to run the same flow manually, use:
+
+```bash
+pnpm local:cicd
+```
+
 ## File Uploads
 
 Payment and result screenshots are saved to `./uploads` (configurable via `UPLOAD_DIR`) and served at `http://localhost:4000/uploads/<filename>`.

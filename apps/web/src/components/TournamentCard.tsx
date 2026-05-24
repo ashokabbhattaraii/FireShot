@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   GameModeLabels,
   TournamentTypeLabels,
@@ -92,9 +93,23 @@ export function TournamentCard({ t }: { t: any }) {
     : "fs-badge fs-badge-green";
   const canJoin = t.status === "UPCOMING" && !full && !(isFree && nextAt);
   const hasResults = t.status === "COMPLETED" || t.status === "PENDING_RESULTS";
+  const router = useRouter();
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      router.push(`/tournaments/${t.id}`);
+    }
+  };
 
   return (
-    <div className="fs-card">
+    <div
+      className="fs-card cursor-pointer"
+      role="link"
+      tabIndex={0}
+      onClick={() => router.push(`/tournaments/${t.id}`)}
+      onKeyDown={handleKeyDown}
+    >
       {t.coverUrl ? (
         <div className="relative">
           <img
@@ -199,6 +214,7 @@ export function TournamentCard({ t }: { t: any }) {
             className={`fs-btn fs-btn-sm ${
               canJoin || hasResults ? 'fs-btn-primary' : 'fs-btn-outline opacity-70'
             }`}
+            onClick={(e) => e.stopPropagation()}
           >
             {canJoin && !isFree && <span>🪙 Rs {playerFee}</span>}
             {hasResults ? "View Result" : full ? "Full" : isFree && nextAt ? "Used" : canJoin ? "JOIN →" : t.status}

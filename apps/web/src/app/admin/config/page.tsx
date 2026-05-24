@@ -107,6 +107,15 @@ export default function ConfigPage() {
   const autoFlowConfigs = flatSysItems.filter((config) => AUTO_FLOW_KEYS.includes(config.key));
   const appUpdateConfigs = flatSysItems.filter((config) => APP_UPDATE_KEYS.includes(config.key));
 
+  const shownKeys = new Set<string>([
+    ...FEE_KEYS,
+    ...WALLET_LIMIT_KEYS,
+    ...TIMING_KEYS,
+    ...AUTO_FLOW_KEYS,
+    ...APP_UPDATE_KEYS,
+  ]);
+  const remainingSysConfigs = flatSysItems.filter((c) => !shownKeys.has(c.key));
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
@@ -387,6 +396,42 @@ export default function ConfigPage() {
                     mono
                   />
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Remaining System Configs (grouped by category) */}
+          {remainingSysConfigs.length > 0 && (
+            <div style={{ background: "var(--fs-surface-1)", borderRadius: 14, border: "0.5px solid var(--fs-border)", overflow: "hidden" }}>
+              <div style={{ padding: "14px 16px", borderBottom: "0.5px solid var(--fs-border)", background: "var(--fs-surface-2)" }}>
+                <p style={{ fontSize: 14, fontWeight: 700, color: "var(--fs-text-1)" }}>System Settings</p>
+                <p style={{ fontSize: 11, color: "var(--fs-text-3)", marginTop: 2 }}>Other system-wide configuration values.</p>
+              </div>
+              <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 16 }}>
+                {Object.entries(sysItems).map(([category, list]) => {
+                  const visible = (list as any[]).filter((c) => !shownKeys.has(c.key));
+                  if (!visible.length) return null;
+                  return (
+                    <div key={category}>
+                      <p style={{ fontSize: 13, fontWeight: 700, color: "var(--fs-text-1)", marginBottom: 8 }}>{category}</p>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                        {visible.map((config: any) => (
+                          <ConfigField
+                            key={config.key}
+                            label={config.label ?? config.key}
+                            value={sysDrafts[config.key] ?? ""}
+                            onChange={(v) => setSysDrafts((d) => ({ ...d, [config.key]: v }))}
+                            onSave={() => saveSys(config.key)}
+                            saving={savingSysKey === config.key}
+                            changed={(sysDrafts[config.key] ?? "") !== config.value}
+                            type={config.type}
+                            mono={config.type === "NUMBER" || config.type === "JSON"}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

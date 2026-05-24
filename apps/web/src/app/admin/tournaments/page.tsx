@@ -47,15 +47,7 @@ export default function AdminTournaments() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<any>(initialForm);
   const [msg, setMsg] = useState<string | null>(null);
-  const [dummyMode, setDummyMode] = useState(false);
-  const [dummyRanges, setDummyRanges] = useState<any>({
-    liveMin: 5,
-    liveMax: 50,
-    usersMin: 1000,
-    usersMax: 5000,
-    downloadsMin: 10000,
-    downloadsMax: 50000,
-  });
+  // removed dummy-mode/demo preview state
   const [adminStats, setAdminStats] = useState<any | null>(null);
   const [publicStats, setPublicStats] = useState<any | null>(null);
   const [preview, setPreview] = useState<any>(null);
@@ -90,25 +82,7 @@ export default function AdminTournaments() {
     if (showLoading) setLoading(true);
     try {
       setItems(await api("/tournaments/admin/list"));
-      // load dummy config and admin/public stats (best-effort)
-      try {
-        const cfg = await api("/admin/config");
-        const flat: Record<string, any> = {};
-        for (const cat of Object.keys(cfg)) {
-          for (const c of cfg[cat]) flat[c.key] = c.value;
-        }
-        setDummyMode(String(flat.DUMMY_DATA_MODE ?? "false").toLowerCase() === "true");
-        setDummyRanges({
-          liveMin: Number(flat.DUMMY_LIVE_PLAYERS_MIN ?? 5),
-          liveMax: Number(flat.DUMMY_LIVE_PLAYERS_MAX ?? 50),
-          usersMin: Number(flat.DUMMY_USER_COUNT_MIN ?? 1000),
-          usersMax: Number(flat.DUMMY_USER_COUNT_MAX ?? 5000),
-          downloadsMin: Number(flat.DUMMY_DOWNLOADS_MIN ?? 10000),
-          downloadsMax: Number(flat.DUMMY_DOWNLOADS_MAX ?? 50000),
-        });
-      } catch (e) {
-        // ignore
-      }
+      // load admin/public stats (best-effort)
       try { setAdminStats(await api("/admin/stats")); } catch (e) { setAdminStats(null); }
       try { setPublicStats(await api("/app/stats")); } catch (e) { setPublicStats(null); }
     } finally {
@@ -248,14 +222,7 @@ export default function AdminTournaments() {
     }
   }
 
-  async function toggleDummyMode() {
-    try {
-      await api(`/admin/config/DUMMY_DATA_MODE`, { method: "PUT", body: JSON.stringify({ value: String(!dummyMode) }) });
-      setDummyMode((d) => !d);
-    } catch (e: any) {
-      setMsg(e.message ?? "Could not toggle dummy mode");
-    }
-  }
+  // dummy-mode toggle removed
 
   async function openResultsModal(tournament: any) {
     setModalTournament(tournament);
@@ -558,16 +525,7 @@ export default function AdminTournaments() {
     setPage(1);
   }, [pageSize, search, statusFilter, modeFilter]);
 
-  function seedHash(s: string) {
-    let h = 2166136261 >>> 0;
-    for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619) >>> 0;
-    return h >>> 0;
-  }
-  function seededInt(id: string, min: number, max: number) {
-    const h = seedHash(id);
-    const r = h / 0xffffffff;
-    return Math.floor(min + r * (max - min + 1));
-  }
+  // seeded helpers removed (no dummy data)
 
   return (
     <div>
@@ -628,8 +586,8 @@ export default function AdminTournaments() {
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface/70 px-4 py-3 text-sm text-white/65">
         <div className="flex items-center gap-4">
-          <div>Users: <span className="font-semibold text-white">{dummyMode ? seededInt("users", dummyRanges.usersMin, dummyRanges.usersMax) : adminStats?.users ?? "-"}</span></div>
-          <div>Downloads: <span className="font-semibold text-white">{dummyMode ? seededInt("downloads", dummyRanges.downloadsMin, dummyRanges.downloadsMax) : publicStats?.totalDownloads ?? "-"}</span></div>
+            <div>Users: <span className="font-semibold text-white">{adminStats?.users ?? "-"}</span></div>
+            <div>Downloads: <span className="font-semibold text-white">{publicStats?.totalDownloads ?? "-"}</span></div>
           <div className="text-xs text-white/60">Tournaments: <span className="font-semibold text-white">{totalItems}</span></div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -639,9 +597,7 @@ export default function AdminTournaments() {
           <button type="button" className="btn-outline text-xs" onClick={() => load(false)} disabled={loading}>
             Refresh
           </button>
-          <button type="button" className={`btn-outline text-xs ${dummyMode ? "bg-neon/10 border-neon/30" : ""}`} onClick={() => toggleDummyMode()}>
-            {dummyMode ? "Dummy: ON" : "Dummy: OFF"}
-          </button>
+          <div />
         </div>
       </div>
 
@@ -899,7 +855,7 @@ export default function AdminTournaments() {
       ) : (
         <div className="space-y-3">
           {pagedItems.map((t) => {
-            const displayedPlayers = dummyMode ? seededInt(t.id, dummyRanges.liveMin, dummyRanges.liveMax) : (t.participants?.length ?? t.actualPlayers ?? t.filledSlots ?? 0);
+            const displayedPlayers = (t.participants?.length ?? t.actualPlayers ?? t.filledSlots ?? 0);
             return (
             <div key={t.id} className="card">
               <div className="flex items-start justify-between gap-3">

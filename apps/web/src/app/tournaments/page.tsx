@@ -14,9 +14,7 @@ type Tab = "ONGOING" | "UPCOMING" | "RESULTS";
 export default function TournamentsListPage() {
   const [items, setItems] = useState<any[]>([]);
   const [publicStats, setPublicStats] = useState<any | null>(null);
-  const [dummyMode, setDummyMode] = useState(false);
-  const [dummyRanges, setDummyRanges] = useState<any>({ liveMin: 0, liveMax: 100 });
-  const [tick, setTick] = useState<number>(0);
+  // dummy/demo mode removed
   const [tab, setTab] = useState<Tab>("UPCOMING");
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
@@ -30,12 +28,8 @@ export default function TournamentsListPage() {
       .then(setItems)
       .catch((e: any) => setErr(e.message ?? "Could not load matches"))
       .finally(() => setLoading(false));
-    // fetch public stats and dummy config
+    // fetch public stats
     api("/app/stats").then((s) => setPublicStats(s)).catch(() => setPublicStats(null));
-    api("/app/dummy-config").then((c) => {
-      setDummyMode(!!c?.dummyMode);
-      if (c?.ranges) setDummyRanges(c.ranges);
-    }).catch(() => {});
   }, []);
 
   const filtered = useMemo(() => {
@@ -59,25 +53,7 @@ export default function TournamentsListPage() {
     return items.filter((t) => t.status === "COMPLETED");
   }, [items, tab, user]);
 
-  // update tick every 2 minutes when dummy mode is active to refresh fake counts
-  useEffect(() => {
-    if (!dummyMode) return;
-    setTick((t) => t + 1);
-    const id = setInterval(() => setTick((t) => t + 1), 120_000);
-    return () => clearInterval(id);
-  }, [dummyMode]);
-
-  function seedHash(s: string) {
-    let h = 2166136261 >>> 0;
-    for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619) >>> 0;
-    return h >>> 0;
-  }
-  function seededIntForTick(id: string, min: number, max: number, tickVal: number) {
-    const key = `${id}:${tickVal}`;
-    const h = seedHash(key);
-    const r = h / 0xffffffff;
-    return Math.floor(min + r * (max - min + 1));
-  }
+  // dummy/demo mode removed (no fake-count ticking)
 
   return (
     <div className="space-y-4">
@@ -96,8 +72,8 @@ export default function TournamentsListPage() {
       </div>
 
       <div className="mb-2 flex items-center gap-6 text-sm text-white/70">
-        <div>Users: <span className="font-semibold text-white">{publicStats?.activeUsers ?? "-"}{dummyMode ? ` (fake: ${seededIntForTick("users", dummyRanges.usersMin ?? 0, dummyRanges.usersMax ?? 100, tick)})` : ""}</span></div>
-        <div>Downloads: <span className="font-semibold text-white">{publicStats?.totalDownloads ?? "-"}{dummyMode ? ` (fake: ${seededIntForTick("downloads", dummyRanges.downloadsMin ?? 0, dummyRanges.downloadsMax ?? 100, tick)})` : ""}</span></div>
+        <div>Users: <span className="font-semibold text-white">{publicStats?.activeUsers ?? "-"}</span></div>
+        <div>Downloads: <span className="font-semibold text-white">{publicStats?.totalDownloads ?? "-"}</span></div>
       </div>
 
       {loading ? (

@@ -41,26 +41,6 @@ export class PublicAppReleasesController {
     return this.svc.getPublicConfig(req);
   }
 
-  @Get("dummy-config")
-  async dummyConfig() {
-    try {
-      await this.systemConfig.ready();
-      return {
-        dummyMode: this.systemConfig.getBool("DUMMY_DATA_MODE"),
-        ranges: {
-          liveMin: this.systemConfig.getNumber("DUMMY_LIVE_PLAYERS_MIN"),
-          liveMax: this.systemConfig.getNumber("DUMMY_LIVE_PLAYERS_MAX"),
-          usersMin: this.systemConfig.getNumber("DUMMY_USER_COUNT_MIN"),
-          usersMax: this.systemConfig.getNumber("DUMMY_USER_COUNT_MAX"),
-          downloadsMin: this.systemConfig.getNumber("DUMMY_DOWNLOADS_MIN"),
-          downloadsMax: this.systemConfig.getNumber("DUMMY_DOWNLOADS_MAX"),
-        },
-      };
-    } catch (e) {
-      return { dummyMode: false, ranges: null };
-    }
-  }
-
   @Post("ci/register-release")
   async registerCiRelease(
     @Headers("x-ci-api-key") ciKey: string | undefined,

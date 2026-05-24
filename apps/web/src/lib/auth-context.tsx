@@ -1,5 +1,5 @@
 "use client";
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { api, auth } from "./api";
 
 type User = {
@@ -29,8 +29,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User>(null);
   const [loading, setLoading] = useState(true);
 
-  const refresh = async () => {
-    if (!auth.token()) {
+  const refresh = useCallback(async () => {
+    const tokenBeforeRefresh = auth.token();
+    if (!tokenBeforeRefresh) {
       setUser(null);
       setLoading(false);
       return;
@@ -45,16 +46,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(null);
       }
     } catch {
-      auth.clear();
-      setUser(null);
+      const tokenAfterRefresh = auth.token();
+      if (!tokenAfterRefresh) {
+        setUser(null);
+      }
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     refresh();
-  }, []);
+  }, [refresh]);
 
   return (
     <Ctx.Provider

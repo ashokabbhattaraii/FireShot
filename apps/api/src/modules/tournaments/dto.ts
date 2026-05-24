@@ -46,6 +46,7 @@ export class CreateTournamentDto {
   @IsOptional() @IsInt() @Min(0) thirdPrize?: number;
   @IsOptional() @IsInt() @Min(0) fourthToTenthPrize?: number;
   @IsInt() @Min(2) maxSlots!: number;
+  @IsOptional() @IsInt() @Min(1) minSlots?: number;
   @IsOptional() @IsInt() @Min(1) maxTeams?: number;
   @IsDateString() dateTime!: string;
   @IsOptional() @IsString() rules?: string;
@@ -67,6 +68,13 @@ export class UpdateTournamentStatusDto {
 export class PublishRoomDto {
   @IsString() roomId!: string;
   @IsString() roomPassword!: string;
+}
+
+export class UpdateTournamentRequirementsDto {
+  @IsOptional() @IsInt() @Min(1) minSlots?: number;
+  @IsOptional() @IsInt() @Min(1) minLevel?: number;
+  @IsOptional() @IsNumber() maxHeadshotRate?: number;
+  @IsOptional() @IsBoolean() allowEmulator?: boolean;
 }
 
 export class TeammateDto {

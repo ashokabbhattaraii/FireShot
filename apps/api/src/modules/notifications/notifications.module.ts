@@ -19,12 +19,24 @@ export class NotificationsController {
     });
   }
 
+  @Get('unread-count')
+  async unreadCount(@CurrentUser() u: any) {
+    const cnt = await this.prisma.notification.count({ where: { userId: u.sub, read: false } });
+    return { unread: cnt };
+  }
+
   @Post(':id/read')
   read(@CurrentUser() u: any, @Param('id') id: string) {
     return this.prisma.notification.updateMany({
       where: { id, userId: u.sub },
       data: { read: true },
     });
+  }
+
+  @Post('read-all')
+  async readAll(@CurrentUser() u: any) {
+    await this.prisma.notification.updateMany({ where: { userId: u.sub, read: false }, data: { read: true } });
+    return { success: true };
   }
 }
 

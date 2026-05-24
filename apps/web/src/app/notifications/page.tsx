@@ -22,6 +22,7 @@ export default function NotificationsPage() {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [markingId, setMarkingId] = useState<string | null>(null);
+  const [markingAll, setMarkingAll] = useState(false);
 
   async function load() {
     setItems(await api("/notifications"));
@@ -40,6 +41,16 @@ export default function NotificationsPage() {
     }
   }
 
+  async function markAllRead() {
+    setMarkingAll(true);
+    try {
+      await api(`/notifications/read-all`, { method: "POST" });
+      await load();
+    } finally {
+      setMarkingAll(false);
+    }
+  }
+
   function handleClick(n: any) {
     const link = getNotificationLink(n);
     if (link) {
@@ -55,6 +66,15 @@ export default function NotificationsPage() {
         title="Notifications"
         description="Match updates, wallet alerts, and system messages."
       />
+      <div className="mt-3 text-right">
+        <button
+          className="btn-outline text-xs px-3 py-1"
+          disabled={markingAll}
+          onClick={() => markAllRead()}
+        >
+          {markingAll ? "Marking..." : "Read all"}
+        </button>
+      </div>
       <div className="mt-4 space-y-2">
         {loading ? (
           <TableLoading columns={2} rows={5} />

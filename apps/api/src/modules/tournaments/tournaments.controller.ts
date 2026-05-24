@@ -176,6 +176,14 @@ export class TournamentsController {
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(Role.ADMIN)
+  @RequirePermission("tournaments", "write")
+  @Put(":id/requirements")
+  updateRequirements(@Param("id") id: string, @Body() dto: any, @CurrentUser() u: any) {
+    return this.svc.updateRequirements(id, dto, u.sub, u.role);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
   @Roles(Role.SUPER_ADMIN)
   @RequirePermission("tournaments", "write")
   @Put(":id/assign-admin")

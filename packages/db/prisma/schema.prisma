@@ -530,6 +530,7 @@ model Tournament {
   thirdPrize     Int              @default(0)
   fourthToTenthPrize Int           @default(0)
   maxSlots       Int
+  minSlots       Int              @default(1)
   maxTeams       Int?
   filledSlots    Int              @default(0)
   filledTeams    Int              @default(0)

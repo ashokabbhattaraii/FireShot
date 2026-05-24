@@ -435,43 +435,45 @@ export class TournamentsService implements OnModuleInit {
       bannedGuns,
     });
 
-    const created = await this.prisma.tournament.create({
-      data: {
-        title: dto.title,
-        description: dto.description,
-        mode: dto.mode,
-        map: dto.map,
-        type,
-        entryFeeNpr: entryFee,
-        registrationFeeNpr: dto.registrationFeeNpr ?? 10,
-        prizePoolNpr: prizePool,
-        perKillPrizeNpr: preview.perKillReward,
-        killPrize: preview.perKillReward,
-        perKillReward: preview.perKillReward,
-        booyahPrize: preview.booyahPrize,
-        booyahPrizeNote: preview.booyahNote,
-        prizeStructure: preview as any,
-        matchRules: matchRules as any,
-        minLevel,
-        maxHeadshotRate,
-        allowEmulator,
-        bannedGuns,
-        characterSkillOn,
-        gunAttributesOn,
-        firstPrize: preview.booyahPrize,
-        secondPrize: 0,
-        thirdPrize: 0,
-        fourthToTenthPrize: 0,
-        maxSlots,
-        maxTeams,
-        dateTime: new Date(dto.dateTime),
-        rules: dto.rules,
-        roomId: dto.roomId,
-        roomPassword: dto.roomPassword,
-        isAdminCreated: true,
-        createdById: adminId,
-      },
-    });
+    const payload: any = {
+      title: dto.title,
+      description: dto.description,
+      mode: dto.mode,
+      map: dto.map,
+      type,
+      entryFeeNpr: entryFee,
+      registrationFeeNpr: dto.registrationFeeNpr ?? 10,
+      prizePoolNpr: prizePool,
+      perKillPrizeNpr: preview.perKillReward,
+      killPrize: preview.perKillReward,
+      perKillReward: preview.perKillReward,
+      booyahPrize: preview.booyahPrize,
+      booyahPrizeNote: preview.booyahNote,
+      prizeStructure: preview as any,
+      matchRules: matchRules as any,
+      minLevel,
+      maxHeadshotRate,
+      allowEmulator,
+      bannedGuns,
+      characterSkillOn,
+      gunAttributesOn,
+      firstPrize: preview.booyahPrize,
+      secondPrize: 0,
+      thirdPrize: 0,
+      fourthToTenthPrize: 0,
+      maxSlots,
+      maxTeams,
+      minSlots: (dto as any).minSlots ?? 1,
+      dateTime: new Date(dto.dateTime),
+      rules: dto.rules,
+      roomId: dto.roomId,
+      roomPassword: dto.roomPassword,
+      isAdminCreated: true,
+      createdById: adminId,
+    };
+
+    const created = await this.prisma.tournament.create({ data: payload });
+    
     this.invalidateReadCaches(created.id);
     return created;
   }
@@ -553,6 +555,14 @@ export class TournamentsService implements OnModuleInit {
         throw new BadRequestException("Publish Room ID and password before moving tournament to LIVE");
       }
     }
+    // Ensure minimum players requirement is met before moving to LIVE
+    if (dto.status === TournamentStatus.LIVE) {
+      const tcheck = (await this.prisma.tournament.findUnique({ where: { id } })) as any;
+      if (!tcheck) throw new NotFoundException("Tournament not found");
+      if ((tcheck.minSlots ?? 1) > (tcheck.filledSlots ?? 0)) {
+        throw new BadRequestException("Cannot move to LIVE: minimum players requirement not met");
+      }
+    }
     const updated: any = await this.prisma.tournament.update({
       where: { id },
       data: {
@@ -562,14 +572,70 @@ export class TournamentsService implements OnModuleInit {
     });
     this.invalidateReadCaches(id);
     this.realtime.emitToTournament(id, "tournament_status_changed", { status: dto.status });
+    // If this status change was performed by an admin, notify participants
+    if (actorId && role) {
+      try {
+        const t = await this.prisma.tournament.findUnique({
+          where: { id },
+          select: { participants: { select: { userId: true } }, title: true },
+        });
+        const recipients = new Set<string>(t?.participants.map((p) => p.userId) ?? []);
+        if (t?.title) {
+          for (const userId of recipients) {
+            await this.prisma.notification.create({
+              data: {
+                userId,
+                type: "TOURNAMENT",
+                title: `${t.title} status updated`,
+                body: `Match status changed to ${dto.status}`,
+              },
+            });
+            this.realtime.emitToUser(userId, "notification_new", {
+              title: `${t.title} status updated`,
+              body: `Match status changed to ${dto.status}`,
+              data: { route: "/my-matches", tournamentId: id },
+            });
+          }
+        }
+      } catch (e) {
+        this.logger.warn(`Failed to notify participants about status change: ${(e as any)?.message ?? e}`);
+      }
+    }
     if ((updated as any).assignedAdminId && dto.status === TournamentStatus.PENDING_RESULTS) {
       await this.notifyAssignedAdmin((updated as any).assignedAdminId, updated.id, updated.title, "Result update needed", "The match has ended. Publish the official scoreboard from Free Fire.");
     }
     return updated;
   }
 
+  async updateRequirements(id: string, dto: any, actorId: string, role: Role) {
+    if (actorId && role) await this.assertCanManage(id, actorId, role);
+    const data: any = {};
+    if (dto.minSlots !== undefined) data.minSlots = dto.minSlots;
+    if (dto.minLevel !== undefined) data.minLevel = dto.minLevel;
+    if (dto.maxHeadshotRate !== undefined) data.maxHeadshotRate = dto.maxHeadshotRate;
+    if (dto.allowEmulator !== undefined) data.allowEmulator = dto.allowEmulator;
+    const updated = await this.prisma.tournament.update({ where: { id }, data });
+    await this.prisma.adminActionLog.create({
+      data: {
+        adminId: actorId,
+        action: "tournament.update_requirements",
+        resource: "tournament",
+        resourceId: id,
+        newValue: data,
+      },
+    });
+    this.invalidateReadCaches(id);
+    return updated;
+  }
+
   async publishRoom(id: string, dto: PublishRoomDto, actorId?: string, role?: Role) {
     if (actorId && role) await this.assertCanManage(id, actorId, role);
+    // Ensure minSlots satisfied before publishing room
+    const tcheck = (await this.prisma.tournament.findUnique({ where: { id } })) as any;
+    if (tcheck && (tcheck.minSlots ?? 1) > (tcheck.filledSlots ?? 0)) {
+      throw new BadRequestException("Cannot publish room: minimum players requirement not met");
+    }
+
     const updated = await this.prisma.tournament.update({
       where: { id },
       data: {
@@ -582,6 +648,33 @@ export class TournamentsService implements OnModuleInit {
     this.invalidateReadCaches(id);
     // Don't leak credentials over realtime — clients pull fresh via API after this nudge.
     this.realtime.emitToTournament(id, "room_details_published", { tournamentId: id });
+    // If an admin published the room, notify participants
+    if (actorId && role) {
+      try {
+        const t = await this.prisma.tournament.findUnique({
+          where: { id },
+          select: { participants: { select: { userId: true } }, title: true },
+        });
+        const recipients = new Set<string>(t?.participants.map((p) => p.userId) ?? []);
+        for (const userId of recipients) {
+          await this.prisma.notification.create({
+            data: {
+              userId,
+              type: "TOURNAMENT",
+              title: `${t?.title ?? "Match"} room published`,
+              body: `Room details have been published. Pull room information from the match page.`,
+            },
+          });
+          this.realtime.emitToUser(userId, "notification_new", {
+            title: `${t?.title ?? "Match"} room published`,
+            body: "Room details have been published.",
+            data: { route: "/my-matches", tournamentId: id },
+          });
+        }
+      } catch (e) {
+        this.logger.warn(`Failed to notify participants about room publish: ${(e as any)?.message ?? e}`);
+      }
+    }
     return updated;
   }
 
@@ -1080,6 +1173,44 @@ export class TournamentsService implements OnModuleInit {
     if (t.type === "FREE_DAILY") {
       await this.prizes.recordFreeDailyUse(userId, tournamentId);
     }
+    // Notify assigned admin or creator that a new participant joined
+    try {
+      const recipient = t.assignedAdminId ?? t.createdById;
+      const actorName = user.profile?.ign ?? user.email ?? "A player";
+      if (recipient) {
+        await this.prisma.notification.create({
+          data: {
+            userId: recipient,
+            type: "TOURNAMENT",
+            title: `${actorName} joined ${t.title}`,
+            body: `${actorName} has just joined the match.`,
+          },
+        });
+        this.realtime.emitToUser(recipient, "notification_new", {
+          title: `${actorName} joined ${t.title}`,
+          body: `Tap to view participants and manage the match.`,
+          data: { route: "/admin/tournaments", tournamentId: t.id, tournamentTitle: t.title },
+        });
+      }
+
+      // Notify the joining user with confirmation
+      await this.prisma.notification.create({
+        data: {
+          userId,
+          type: "TOURNAMENT",
+          title: `Joined ${t.title}`,
+          body: `You have successfully joined ${t.title}.`,
+        },
+      });
+      this.realtime.emitToUser(userId, "notification_new", {
+        title: `Joined ${t.title}`,
+        body: "You have successfully joined the match.",
+        data: { route: "/my-matches", tournamentId: t.id },
+      });
+    } catch (e) {
+      this.logger.warn(`Failed to create join notifications: ${(e as any)?.message ?? e}`);
+    }
+
     this.invalidateReadCaches(tournamentId);
     return participant;
   }
@@ -1239,15 +1370,18 @@ export class TournamentsService implements OnModuleInit {
     maxFee?: number;
     limit?: number;
   }) {
-    return `${TOURNAMENT_LIST_CACHE_PREFIX}${JSON.stringify({
-      mode: filters.mode ?? null,
-      status: filters.status ?? null,
-      statuses: filters.statuses ?? null,
-      type: filters.type ?? null,
-      minFee: filters.minFee ?? null,
-      maxFee: filters.maxFee ?? null,
-      limit: this.normalizeListLimit(filters.limit),
-    })}`;
+    return (
+      TOURNAMENT_LIST_CACHE_PREFIX +
+      JSON.stringify({
+        mode: filters.mode ?? null,
+        status: filters.status ?? null,
+        statuses: filters.statuses ?? null,
+        type: filters.type ?? null,
+        minFee: filters.minFee ?? null,
+        maxFee: filters.maxFee ?? null,
+        limit: this.normalizeListLimit(filters.limit),
+      })
+    );
   }
 
   private normalizeListLimit(limit?: number) {

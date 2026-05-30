@@ -68,6 +68,8 @@ export class SystemConfigService implements OnModuleInit {
   > = {
     MAX_ENTRY_FEE: { value: "50", type: "NUMBER", category: "PRICING", label: "Max Entry Fee (NPR)" },
     MIN_ENTRY_FEE: { value: "10", type: "NUMBER", category: "PRICING", label: "Min Entry Fee (NPR)" },
+    CS_EXPECTED_KILLS: { value: "3.5", type: "NUMBER", category: "PRICING", label: "CS Expected Kills Divisor" },
+    LW_EXPECTED_KILLS: { value: "2.5", type: "NUMBER", category: "PRICING", label: "LW Expected Kills Divisor" },
     SYSTEM_FEE_PERCENT: { value: "20", type: "NUMBER", category: "PRICING", label: "Tournaments Platform Cut %" },
     CHALLENGE_FEE_PERCENT: { value: "20", type: "NUMBER", category: "PRICING", label: "Challenges Platform Cut %" },
     WITHDRAWAL_FEE_PERCENT: { value: "0", type: "NUMBER", category: "PRICING", label: "Withdrawal Fee %" },

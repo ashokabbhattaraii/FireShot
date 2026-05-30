@@ -18,7 +18,15 @@ const PAYMENT_METHODS = [
   { key: "bank", label: "Bank Transfer", color: "#1565C0" },
 ];
 
-const FEE_KEYS = ["SYSTEM_FEE_PERCENT", "CHALLENGE_FEE_PERCENT", "WITHDRAWAL_FEE_PERCENT"];
+const PRICING_KEYS = [
+  "SYSTEM_FEE_PERCENT",
+  "CHALLENGE_FEE_PERCENT",
+  "WITHDRAWAL_FEE_PERCENT",
+  "MAX_ENTRY_FEE",
+  "MIN_ENTRY_FEE",
+  "CS_EXPECTED_KILLS",
+  "LW_EXPECTED_KILLS"
+];
 const WALLET_LIMIT_KEYS = ["MIN_DEPOSIT_AMOUNT_NPR", "MIN_WITHDRAWAL_AMOUNT_NPR"];
 const APP_UPDATE_KEYS = ["APP_LATEST_VERSION", "APP_MIN_ANDROID_VERSION", "APP_FORCE_UPDATE_ENABLED", "APP_DOWNLOAD_ENABLED"];
 const TIMING_KEYS = ["RESULT_SUBMIT_DELAY_MINS", "TOURNAMENT_LIVE_TO_PENDING_RESULTS_MINS", "AUTO_START_MINS_BEFORE", "PENDING_RESULTS_TO_COMPLETED_MINS"];
@@ -101,14 +109,14 @@ export default function ConfigPage() {
 
   const otherConfigs = items.filter(i => !i.key.startsWith("deposit_qr_") && !["deposit_account_id", "deposit_account_name", "deposit_instructions"].includes(i.key));
   const flatSysItems = Object.values(sysItems).flat();
-  const feeConfigs = flatSysItems.filter((config) => FEE_KEYS.includes(config.key));
+  const pricingConfigs = flatSysItems.filter((config) => PRICING_KEYS.includes(config.key));
   const walletLimitConfigs = flatSysItems.filter((config) => WALLET_LIMIT_KEYS.includes(config.key));
   const timingConfigs = flatSysItems.filter((config) => TIMING_KEYS.includes(config.key));
   const autoFlowConfigs = flatSysItems.filter((config) => AUTO_FLOW_KEYS.includes(config.key));
   const appUpdateConfigs = flatSysItems.filter((config) => APP_UPDATE_KEYS.includes(config.key));
 
   const shownKeys = new Set<string>([
-    ...FEE_KEYS,
+    ...PRICING_KEYS,
     ...WALLET_LIMIT_KEYS,
     ...TIMING_KEYS,
     ...AUTO_FLOW_KEYS,
@@ -230,28 +238,39 @@ export default function ConfigPage() {
             </div>
           </div>
 
-          {/* System Fee Settings */}
-          {feeConfigs.length > 0 && (
+          {/* Pricing & Expected Kills Control */}
+          {pricingConfigs.length > 0 && (
             <div style={{ background: "var(--fs-surface-1)", borderRadius: 14, border: "0.5px solid var(--fs-border)", overflow: "hidden" }}>
               <div style={{ padding: "14px 16px", borderBottom: "0.5px solid var(--fs-border)", background: "var(--fs-surface-2)" }}>
-                <p style={{ fontSize: 14, fontWeight: 700, color: "var(--fs-text-1)" }}>System Fee Settings</p>
-                <p style={{ fontSize: 11, color: "var(--fs-text-3)", marginTop: 2 }}>Configure the platform service cuts for tournaments, challenges, and withdrawals.</p>
+                <p style={{ fontSize: 14, fontWeight: 700, color: "var(--fs-text-1)" }}>Pricing & Expected Kills Settings</p>
+                <p style={{ fontSize: 11, color: "var(--fs-text-3)", marginTop: 2 }}>Configure platform service cuts, min/max allowable entry fees, and expected round-kills divisors.</p>
               </div>
               <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 16 }}>
-                {feeConfigs.map((config) => (
-                  <ConfigField
-                    key={config.key}
-                    label={config.label}
-                    description={config.key === "WITHDRAWAL_FEE_PERCENT" ? "Withdrawal fee is deducted from the requested amount." : "Percent of entry fee collected by the platform."}
-                    value={sysDrafts[config.key] ?? ""}
-                    onChange={(v) => setSysDrafts((d) => ({ ...d, [config.key]: v }))}
-                    onSave={() => saveSys(config.key)}
-                    saving={savingSysKey === config.key}
-                    changed={(sysDrafts[config.key] ?? "") !== config.value}
-                    type={config.type}
-                    mono
-                  />
-                ))}
+                {pricingConfigs.map((config) => {
+                  let desc = "Platform setting.";
+                  if (config.key === "SYSTEM_FEE_PERCENT") desc = "Platform cut percentage taken from tournaments.";
+                  else if (config.key === "CHALLENGE_FEE_PERCENT") desc = "Platform cut percentage taken from challenge matches.";
+                  else if (config.key === "WITHDRAWAL_FEE_PERCENT") desc = "Platform withdrawal processing fee percentage.";
+                  else if (config.key === "MAX_ENTRY_FEE") desc = "Maximum allowed entry fee (in NPR) for custom matches.";
+                  else if (config.key === "MIN_ENTRY_FEE") desc = "Minimum allowed entry fee (in NPR) for paid matches.";
+                  else if (config.key === "CS_EXPECTED_KILLS") desc = "Expected average kills per player in Clash Squad rounds (divides per-kill reward).";
+                  else if (config.key === "LW_EXPECTED_KILLS") desc = "Expected average kills per player in Lone Wolf rounds (divides per-kill reward).";
+
+                  return (
+                    <ConfigField
+                      key={config.key}
+                      label={config.label}
+                      description={desc}
+                      value={sysDrafts[config.key] ?? ""}
+                      onChange={(v) => setSysDrafts((d) => ({ ...d, [config.key]: v }))}
+                      onSave={() => saveSys(config.key)}
+                      saving={savingSysKey === config.key}
+                      changed={(sysDrafts[config.key] ?? "") !== config.value}
+                      type={config.type}
+                      mono
+                    />
+                  );
+                })}
               </div>
             </div>
           )}

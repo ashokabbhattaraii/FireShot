@@ -81,9 +81,9 @@ export class PrizeService {
     let avgExpectedKills = 1.0; 
     
     if (mode?.startsWith("CS_")) {
-      avgExpectedKills = 3.5; // average kills per player in a 7 round match
+      avgExpectedKills = this.config.getNumber("CS_EXPECTED_KILLS") || 3.5; // average kills per player in a 7 round match
     } else if (mode?.startsWith("LW_")) {
-      avgExpectedKills = 2.5; 
+      avgExpectedKills = this.config.getNumber("LW_EXPECTED_KILLS") || 2.5; 
     } 
 
     const perKill = Math.floor(basePerKill / avgExpectedKills);

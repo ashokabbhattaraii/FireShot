@@ -1324,8 +1324,8 @@ export class TournamentsService implements OnModuleInit {
   private validateFeePlan(dto: CreateTournamentDto) {
     const type = (dto.type ?? "SOLO_1ST") as TournamentType;
 
-    const maxFee = 50; // User requested minimum starting price from 20 max 50
-    const minFee = 20;
+    const maxFee = this.config.getNumber("MAX_ENTRY_FEE") || 50;
+    const minFee = this.config.getNumber("MIN_ENTRY_FEE") || 20;
 
     const freePool = this.config.getNumber("FREE_DAILY_PRIZE_POOL");
 

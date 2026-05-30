@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { ViewportToggle } from "./ViewportToggle";
 import { api } from "@/lib/api";
+import { useViewport } from "@/lib/viewport-context";
 
 
 export function Navbar() {
@@ -48,7 +49,8 @@ export function Navbar() {
       }}
     >
       <div className="flex items-center justify-between px-4" style={{ height: '56px' }}>
-        <Link href="/" className="flex items-center gap-2">
+        {/* Left: Logo */}
+        <Link href="/" className="flex items-center gap-2 shrink-0">
           <span className="flex h-9 w-9 items-center justify-center rounded-lg" style={{ background: 'var(--fs-red-glow)' }}>
             <Flame size={20} style={{ color: 'var(--fs-red)' }} />
           </span>
@@ -58,46 +60,14 @@ export function Navbar() {
           </div>
         </Link>
 
-        {/* Desktop Centered Links */}
-        <div className="hidden md:flex items-center gap-6">
-          <Link
-            href="/"
-            className={`text-sm font-semibold transition-colors duration-200 ${
-              pathname === "/" ? "text-[#E53935]" : "text-white/65 hover:text-white"
-            }`}
-          >
-            Home
-          </Link>
-          <Link
-            href="/tournaments"
-            className={`text-sm font-semibold transition-colors duration-200 ${
-              pathname.startsWith("/tournaments") ? "text-[#E53935]" : "text-white/65 hover:text-white"
-            }`}
-          >
-            Tournaments
-          </Link>
-          <Link
-            href="/challenges"
-            className={`text-sm font-semibold transition-colors duration-200 ${
-              pathname.startsWith("/challenges") ? "text-[#E53935]" : "text-white/65 hover:text-white"
-            }`}
-          >
-            Challenges
-          </Link>
-          <Link
-            href="/leaderboard"
-            className={`text-sm font-semibold transition-colors duration-200 ${
-              pathname.startsWith("/leaderboard") ? "text-[#E53935]" : "text-white/65 hover:text-white"
-            }`}
-          >
-            Leaderboard
-          </Link>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <div className="hidden sm:block">
+        {/* Right: Actions */}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* ViewportToggle — always show on desktop */}
+          <div className="hidden md:block">
             <ViewportToggle compact />
           </div>
+
+          {/* Wallet badge — always visible when logged in */}
           {user && walletBalance !== null && (
             <Link
               href="/wallet"
@@ -110,6 +80,7 @@ export function Navbar() {
           )}
           {user ? (
             <>
+              {/* Notification bell — always visible */}
               <Link
                 href="/notifications"
                 className="relative flex h-9 w-9 items-center justify-center rounded-lg"
@@ -123,35 +94,6 @@ export function Navbar() {
                   </span>
                 )}
               </Link>
-              <Link
-                href="/my-matches"
-                className="hidden sm:flex h-9 w-9 items-center justify-center rounded-lg"
-                style={{ background: 'var(--fs-surface-2)', border: '1px solid var(--fs-border)' }}
-                aria-label="My Matches"
-              >
-                <ListChecks size={17} style={{ color: 'var(--fs-text-2)' }} />
-              </Link>
-              {user.role !== "PLAYER" && (
-                <Link
-                  href="/admin"
-                  className="hidden sm:flex h-9 w-9 items-center justify-center rounded-lg"
-                  style={{ background: 'var(--fs-amber-dim)', border: '1px solid rgba(255,143,0,0.3)' }}
-                  aria-label="Admin"
-                >
-                  <Shield size={17} style={{ color: 'var(--fs-amber)' }} />
-                </Link>
-              )}
-              <div className="hidden sm:block">
-                <NavAvatar src={user.avatarUrl} />
-              </div>
-              <button
-                onClick={logout}
-                className="hidden sm:flex h-9 w-9 items-center justify-center rounded-lg"
-                style={{ background: 'var(--fs-surface-2)', border: '1px solid var(--fs-border)' }}
-                aria-label="Logout"
-              >
-                <LogOut size={17} style={{ color: 'var(--fs-text-3)' }} />
-              </button>
             </>
           ) : (
             <Link href="/login" className="fs-btn fs-btn-primary fs-btn-sm">

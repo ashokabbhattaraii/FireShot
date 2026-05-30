@@ -7,6 +7,7 @@ import { useIsNativeApp } from "@/hooks/useIsNativeApp";
 import { useAuth } from "@/lib/auth-context";
 import { api } from "@/lib/api";
 import { useUserRealtime } from "@/hooks/useUserRealtime";
+import { useViewport } from "@/lib/viewport-context";
 
 const TABS = [
   { href: "/", label: "Home", Icon: Home },
@@ -17,6 +18,7 @@ const TABS = [
 ];
 
 export function MobileBottomNav() {
+  const { mode } = useViewport();
   const isNative = useIsNativeApp();
   const pathname = usePathname();
   const { user } = useAuth();
@@ -37,8 +39,9 @@ export function MobileBottomNav() {
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-50 grid grid-cols-5 md:hidden"
+      className={`fixed bottom-0 left-0 right-0 z-50 grid grid-cols-5 mx-auto`}
       style={{
+        maxWidth: mode === "web" ? "100%" : "480px",
         background: 'rgba(11,11,20,0.97)',
         backdropFilter: 'blur(12px)',
         borderTop: '0.5px solid var(--fs-border)',

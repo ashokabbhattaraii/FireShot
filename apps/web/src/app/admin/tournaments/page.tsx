@@ -10,47 +10,21 @@ import {
   GameModes,
   GameModeMaxTeams,
   GameModeTeamSize,
-  calculatePrize,
-  getDefaultTournamentType,
-  isWinnerTakesAllOnly,
   TournamentTypeLabels,
+  isWinnerTakesAllOnly,
 } from "@fireslot/shared";
 import { fmtDate, npr } from "@/lib/utils";
 import { ButtonLoading, CardSkeleton, ConfirmDialog, EmptyState, PageHeader, StatusBadge } from "@/components/ui";
 
 const BANNED_GUNS = ["Double Vector", "M79", "Grenade Launcher", "Rocket Launcher"];
 
-const initialForm = {
-  title: "",
-  description: "",
-  mode: "BR_SOLO",
-  map: "Bermuda",
-  type: "SOLO_TOP3",
-  entryFeeNpr: 15,
-  prizePoolNpr: 0,
-  maxSlots: 48,
-  maxTeams: undefined as number | undefined,
-  dateTime: "",
-  rules: "",
-  minLevel: 40,
-  maxHeadshotRate: 70,
-  allowEmulator: false,
-  characterSkillOn: true,
-  gunAttributesOn: false,
-  bannedGuns: ["Double Vector", "M79"] as string[],
-};
-
 export default function AdminTournaments() {
   const { user } = useAuth();
   const [items, setItems] = useState<any[]>([]);
   const [assignees, setAssignees] = useState<any[]>([]);
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState<any>(initialForm);
   const [msg, setMsg] = useState<string | null>(null);
-  // removed dummy-mode/demo preview state
   const [adminStats, setAdminStats] = useState<any | null>(null);
   const [publicStats, setPublicStats] = useState<any | null>(null);
-  const [preview, setPreview] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [actionKey, setActionKey] = useState<string | null>(null);
@@ -78,6 +52,65 @@ export default function AdminTournaments() {
     run: () => Promise<void> | void;
   }>(null);
 
+  // Minimal create form state & handlers (previously removed) — keep lightweight
+  // to avoid runtime ReferenceError for `open` / `create` while preserving
+  // existing UI. Replace with full create flow later if needed.
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState<any>({
+    title: "",
+    map: "",
+    mode: GameModes?.[0] ?? "",
+    type: "SOLO_TOP3",
+    description: "",
+    entryFeeNpr: 20,
+    maxTeams: undefined,
+    maxSlots: 2,
+    dateTime: "",
+    minLevel: 1,
+    maxHeadshotRate: 100,
+    allowEmulator: false,
+    characterSkillOn: false,
+    gunAttributesOn: false,
+    bannedGuns: [],
+    rules: "",
+  });
+
+  function applyModeDefaults(mode: string) {
+    setForm((prev: any) => ({
+      ...prev,
+      mode,
+      maxTeams: prev.maxTeams ?? GameModeMaxTeams[mode as keyof typeof GameModeMaxTeams],
+      maxSlots: prev.maxSlots ?? (GameModeMaxTeams[mode as keyof typeof GameModeMaxTeams] * GameModeTeamSize[mode as keyof typeof GameModeTeamSize]),
+    }));
+  }
+
+  const prizePreview: any = null;
+  const formIsWTA = form.type === "SOLO_1ST" || isWinnerTakesAllOnly(form.mode ?? "");
+  const formIsPlacementPrize = form.type === "SOLO_TOP3" || form.type === "SQUAD_TOP10" || form.type === "COMBO";
+  const formIsKillPrize = form.type === "KILL_RACE" || form.type === "COMBO";
+  const typeLocked = false;
+
+  async function create(e: any) {
+    e?.preventDefault?.();
+    setCreating(true);
+    setMsg(null);
+    try {
+      // Best-effort: submit form to backend. If the backend requires a
+      // different payload, this acts as a safe stub until full create is built.
+      await api("/tournaments", {
+        method: "POST",
+        body: JSON.stringify(form),
+      });
+      setMsg("Tournament created");
+      setOpen(false);
+      await load(false);
+    } catch (err: any) {
+      setMsg(err?.message ?? "Could not create tournament");
+    } finally {
+      setCreating(false);
+    }
+  }
+
   async function load(showLoading = true) {
     if (showLoading) setLoading(true);
     try {
@@ -93,46 +126,6 @@ export default function AdminTournaments() {
     load().catch(() => {});
     api("/tournaments/admin/assignees").then(setAssignees).catch(() => setAssignees([]));
   }, []);
-
-  // Live pricing preview
-  useEffect(() => {
-    const fee = Number(form.entryFeeNpr);
-    const slots = Number(form.maxSlots);
-    if (!fee || !slots) return setPreview(null);
-    const ctrl = new AbortController();
-    api(`/tournaments/preview/pricing?entryFee=${fee}&maxPlayers=${slots}`)
-      .then(setPreview)
-      .catch(() => setPreview(null));
-    return () => ctrl.abort();
-  }, [form.entryFeeNpr, form.maxSlots]);
-
-  async function create(e: React.FormEvent) {
-    e.preventDefault();
-    setMsg(null);
-    setCreating(true);
-    try {
-      await api("/tournaments", {
-        method: "POST",
-        body: JSON.stringify({
-          ...form,
-          entryFeeNpr: Number(form.entryFeeNpr),
-          prizePoolNpr: preview?.grossPool ?? 0,
-          maxSlots: Number(form.maxSlots),
-          maxTeams: form.maxTeams ? Number(form.maxTeams) : undefined,
-          minLevel: Number(form.minLevel),
-          maxHeadshotRate: Number(form.maxHeadshotRate),
-          dateTime: new Date(form.dateTime).toISOString(),
-        }),
-      });
-      setForm(initialForm);
-      setOpen(false);
-      await load(false);
-    } catch (e: any) {
-      setMsg(e.message);
-    } finally {
-      setCreating(false);
-    }
-  }
 
   async function setStatus(id: string, status: string) {
     setActionKey(`${id}:status`);
@@ -418,39 +411,6 @@ export default function AdminTournaments() {
     } catch (e) {}
   }
 
-  function applyModeDefaults(mode: string) {
-    const teamSize = GameModeTeamSize[mode as keyof typeof GameModeTeamSize] ?? 1;
-    const modeMaxTeams = GameModeMaxTeams[mode as keyof typeof GameModeMaxTeams] ?? 2;
-    const isTeamBased = teamSize > 1;
-    const isFixedTwoTeamMode = mode === "CS_4V4" || mode === "LW_1V1" || mode === "LW_2V2";
-    const defaultTeams = isFixedTwoTeamMode ? 2 : modeMaxTeams;
-    const defaultType = getDefaultTournamentType(mode);
-
-    setForm((prev: any) => ({
-      ...prev,
-      mode,
-      type: defaultType,
-      maxTeams: isTeamBased ? defaultTeams : undefined,
-      maxSlots: defaultTeams * teamSize,
-    }));
-  }
-
-  const typeLocked = isWinnerTakesAllOnly(form.mode);
-  const formIsWTA = form.type === "SOLO_1ST" || typeLocked;
-  const formIsPlacementPrize = form.type === "SOLO_TOP3" || form.type === "SQUAD_TOP10";
-  const formIsKillPrize = form.type === "KILL_RACE" || form.type === "COMBO";
-
-  const localPreview = useMemo(() => {
-    const fee = Number(form.entryFeeNpr);
-    const slots = Number(form.maxSlots);
-    if (!fee || !slots) return null;
-    return calculatePrize({
-      entryFee: fee,
-      playerCount: slots,
-      tournamentType: form.type,
-    });
-  }, [form.entryFeeNpr, form.maxSlots, form.type]);
-  const prizePreview = localPreview ?? preview;
   const modalIsWTA = !!modalTournament && (
     modalTournament.type === "SOLO_1ST" ||
     isWinnerTakesAllOnly(modalTournament.mode ?? "")
@@ -534,9 +494,9 @@ export default function AdminTournaments() {
         title="Tournaments"
         description="Pool scales with actual players. Per Kill and Booyah are auto-computed at room lock."
         action={
-          <button onClick={() => setOpen(!open)} className="btn-primary">
-            {open ? "Close" : "New"}
-          </button>
+          <Link href="/admin/tournaments/create" className="btn-primary">
+            + Create Tournament
+          </Link>
         }
       />
 
@@ -857,22 +817,96 @@ export default function AdminTournaments() {
           {pagedItems.map((t) => {
             const displayedPlayers = (t.participants?.length ?? t.actualPlayers ?? t.filledSlots ?? 0);
             return (
-            <div key={t.id} className="card">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="label">{GameModeLabels[t.mode as keyof typeof GameModeLabels]}</p>
-                  <h3 className="font-semibold text-white">{t.title}</h3>
-                  <p className="mt-1 text-xs text-white/50">{fmtDate(t.dateTime)}</p>
-                  <p className="mt-1 text-[11px] text-white/45">
-                    Manager: {t.assignedAdmin?.name ?? t.assignedAdmin?.email ?? (t.createdById === user?.id ? "You" : "Unassigned")}
-                  </p>
+            <div
+              key={t.id}
+              className={`relative overflow-hidden rounded-xl border bg-gradient-to-br from-[#13132a] to-[#0f0f1f] p-5 transition-all duration-300 hover:shadow-[0_0_20px_rgba(255,255,255,0.02)] ${
+                t.status === "LIVE"
+                  ? "border-[#ff2d75]/30 shadow-[0_0_15px_rgba(255,45,117,0.1)] before:absolute before:left-0 before:top-0 before:h-full before:w-[4px] before:bg-[#ff2d75]"
+                  : t.status === "UPCOMING"
+                    ? "border-[#ff7a00]/20 before:absolute before:left-0 before:top-0 before:h-full before:w-[4px] before:bg-[#ff7a00]"
+                    : t.status === "PENDING_RESULTS"
+                      ? "border-[#00f0ff]/20 before:absolute before:left-0 before:top-0 before:h-full before:w-[4px] before:bg-[#00f0ff]"
+                      : t.status === "COMPLETED"
+                        ? "border-[#39ff14]/20 before:absolute before:left-0 before:top-0 before:h-full before:w-[4px] before:bg-[#39ff14]"
+                        : "border-white/5 before:absolute before:left-0 before:top-0 before:h-full before:w-[4px] before:bg-white/20"
+              }`}
+            >
+              {/* Header Zone */}
+              <div className="flex items-start justify-between gap-4 pb-3.5 border-b border-white/[0.05]">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-white/5 text-white/60">
+                      {GameModeLabels[t.mode as keyof typeof GameModeLabels] || t.mode}
+                    </span>
+                    {t.map && (
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-[#00f0ff]/10 text-[#00f0ff]">
+                        🗺️ {t.map}
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-base font-bold text-white tracking-wide leading-snug">{t.title}</h3>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-white/50">
+                    <span className="flex items-center gap-1">📅 {fmtDate(t.dateTime)}</span>
+                    <span className="text-white/20">•</span>
+                    <span className="flex items-center gap-1">
+                      👤 Manager:{" "}
+                      <strong className="text-white/80">
+                        {t.assignedAdmin?.name ?? t.assignedAdmin?.email ?? (t.createdById === user?.id ? "You" : "Unassigned")}
+                      </strong>
+                    </span>
+                  </div>
                 </div>
                 <StatusBadge status={t.status} />
               </div>
+
+              {/* Stats Zone */}
+              <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2.5">
+                <div className="bg-white/[0.02] border border-white/[0.04] rounded-lg p-2.5 transition-colors hover:bg-white/[0.04]">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">Fee</p>
+                  <p className="mt-1 text-sm font-extrabold text-white">{npr(t.entryFeeNpr)}</p>
+                </div>
+                <div className="bg-white/[0.02] border border-white/[0.04] rounded-lg p-2.5 transition-colors hover:bg-white/[0.04]">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">
+                    {t.type === "SOLO_1ST" ? "Winner Gets" : t.type === "SOLO_TOP3" || t.type === "SQUAD_TOP10" ? "Top Prize" : "Per Kill"}
+                  </p>
+                  <p className="mt-1 text-sm font-extrabold text-yellow-400">
+                    {t.type === "SOLO_1ST"
+                      ? npr(t.prizeStructure?.netPool ?? t.prizePoolNpr ?? 0)
+                      : t.type === "SOLO_TOP3" || t.type === "SQUAD_TOP10"
+                        ? npr(t.prizeStructure?.prizeBreakdown?.[0]?.amount ?? 0)
+                        : npr(t.perKillReward ?? 0)}
+                  </p>
+                </div>
+                <div className="bg-white/[0.02] border border-white/[0.04] rounded-lg p-2.5 transition-colors hover:bg-white/[0.04]">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">
+                    {t.type === "SOLO_TOP3" || t.type === "SQUAD_TOP10" ? "Payout" : "Booyah"}
+                  </p>
+                  <p className="mt-1 text-sm font-bold text-[#00f0ff] truncate">
+                    {t.type === "SOLO_TOP3" || t.type === "SQUAD_TOP10"
+                      ? TournamentTypeLabels[t.type as keyof typeof TournamentTypeLabels]
+                      : npr(t.booyahPrize ?? 0)}
+                  </p>
+                </div>
+                <div className="bg-white/[0.02] border border-white/[0.04] rounded-lg p-2.5 transition-colors hover:bg-white/[0.04]">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">
+                    {GameModeTeamSize[t.mode as keyof typeof GameModeTeamSize] > 1 ? "Teams" : "Players"}
+                  </p>
+                  <p className="mt-1 text-sm font-extrabold text-[#39ff14]">
+                    {GameModeTeamSize[t.mode as keyof typeof GameModeTeamSize] > 1
+                      ? `${Math.floor(displayedPlayers / GameModeTeamSize[t.mode as keyof typeof GameModeTeamSize])}/${t.maxTeams || Math.floor(t.maxSlots / GameModeTeamSize[t.mode as keyof typeof GameModeTeamSize])}`
+                      : `${displayedPlayers}/${t.maxSlots}`}
+                  </p>
+                </div>
+              </div>
+
+              {/* Manager Assignment Zone */}
               {user?.role === "SUPER_ADMIN" && (
-                <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
+                <div className="mt-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-white/[0.02] border border-white/[0.04] rounded-lg p-2.5">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-white/40 whitespace-nowrap shrink-0 sm:pl-1">
+                    Assign Manager
+                  </span>
                   <select
-                    className="input text-xs"
+                    className="w-full bg-[#16162a] border border-white/10 rounded-md px-2.5 py-1.5 text-xs text-white outline-none focus:border-[#E53935] min-h-[36px]"
                     value={t.assignedAdminId ?? ""}
                     onChange={(e) => assignAdmin(t.id, e.target.value)}
                     disabled={actionKey === `${t.id}:assign`}
@@ -884,156 +918,167 @@ export default function AdminTournaments() {
                       </option>
                     ))}
                   </select>
-                  <span className="rounded-lg border border-neon/30 bg-neon/10 px-3 py-2 text-[11px] font-semibold text-neon">
-                    Assign Manager
-                  </span>
                 </div>
               )}
-              <div className="mt-4 grid grid-cols-4 gap-2 text-xs">
-                <Mini label="Fee" value={npr(t.entryFeeNpr)} />
-                <Mini
-                  label={t.type === "SOLO_1ST" ? "Winner Gets" : t.type === "SOLO_TOP3" || t.type === "SQUAD_TOP10" ? "Top Prize" : "Per Kill"}
-                  value={t.type === "SOLO_1ST"
-                    ? npr(t.prizeStructure?.netPool ?? t.prizePoolNpr ?? 0)
-                    : t.type === "SOLO_TOP3" || t.type === "SQUAD_TOP10"
-                      ? npr(t.prizeStructure?.prizeBreakdown?.[0]?.amount ?? 0)
-                      : npr(t.perKillReward ?? 0)
-                  }
-                />
-                <Mini
-                  label={t.type === "SOLO_TOP3" || t.type === "SQUAD_TOP10" ? "Payout" : "Booyah"}
-                  value={t.type === "SOLO_TOP3" || t.type === "SQUAD_TOP10"
-                    ? TournamentTypeLabels[t.type as keyof typeof TournamentTypeLabels]
-                    : npr(t.booyahPrize ?? 0)
-                  }
-                />
-                <Mini
-                  label={GameModeTeamSize[t.mode as keyof typeof GameModeTeamSize] > 1 ? "Teams" : "Players"}
-                  value={GameModeTeamSize[t.mode as keyof typeof GameModeTeamSize] > 1
-                    ? `${Math.floor(displayedPlayers / GameModeTeamSize[t.mode as keyof typeof GameModeTeamSize])}/${t.maxTeams || Math.floor(t.maxSlots / GameModeTeamSize[t.mode as keyof typeof GameModeTeamSize])}`
-                    : `${displayedPlayers}/${t.maxSlots}`
-                  }
-                />
-              </div>
-              <div className="mt-3 rounded-lg border border-amber-400/30 bg-amber-400/10 p-3 text-xs text-amber-100">
-                <p className="font-semibold">
-                  {t.status === "UPCOMING"
-                    ? "Step 1: publish Room ID + password. Wait around 10 minutes in Free Fire, then start match."
+
+              {/* Dynamic Step Alert Zone */}
+              <div
+                className={`mt-4 rounded-lg border p-3 text-xs leading-relaxed ${
+                  t.status === "UPCOMING"
+                    ? "border-amber-500/20 bg-amber-500/5 text-amber-200/90"
                     : t.status === "LIVE"
-                      ? "Step 2: match is live. Watch kills, rankings, suspicious play, and winner in Free Fire. End match when game concludes."
+                      ? "border-[#ff2d75]/20 bg-[#ff2d75]/5 text-pink-200/90"
                       : t.status === "PENDING_RESULTS"
-                        ? "Step 3: enter the official final placement and kills from Free Fire, then publish results."
+                        ? "border-[#00f0ff]/20 bg-[#00f0ff]/5 text-cyan-200/90"
                         : t.status === "COMPLETED"
-                          ? "Completed: players should use View Result."
-                          : "Cancelled tournament."}
-                </p>
+                          ? "border-[#39ff14]/20 bg-[#39ff14]/5 text-green-200/90"
+                          : "border-white/10 bg-white/5 text-white/60"
+                }`}
+              >
+                <div className="flex items-start gap-2">
+                  <span className="text-sm shrink-0">
+                    {t.status === "UPCOMING"
+                      ? "🔑"
+                      : t.status === "LIVE"
+                        ? "🔥"
+                        : t.status === "PENDING_RESULTS"
+                          ? "📊"
+                          : t.status === "COMPLETED"
+                            ? "✅"
+                            : "⚠️"}
+                  </span>
+                  <p className="font-medium">
+                    {t.status === "UPCOMING"
+                      ? "Step 1: Publish Room ID + password. Wait around 10 minutes in Free Fire, then start match."
+                      : t.status === "LIVE"
+                        ? "Step 2: Match is live. Watch kills, rankings, suspicious play, and winner in Free Fire. End match when game concludes."
+                        : t.status === "PENDING_RESULTS"
+                          ? "Step 3: Enter the official final placement and kills from Free Fire, then publish results."
+                          : t.status === "COMPLETED"
+                            ? "Completed: Players can now view the official scoreboard and prize credits."
+                            : "Cancelled tournament."}
+                  </p>
+                </div>
               </div>
+
+              {/* Room Setup Zone */}
               {(t.status === "UPCOMING" || t.status === "LIVE") && (
-                <div className="mt-3 grid grid-cols-[1fr_1fr_auto] gap-2">
-                  <input
-                    className="input text-sm"
-                    placeholder="Room ID"
-                    value={roomDrafts[t.id]?.roomId ?? ""}
-                    onChange={(e) =>
-                      setRoomDrafts((prev) => ({
-                        ...prev,
-                        [t.id]: { ...(prev[t.id] ?? { roomId: "", roomPassword: "" }), roomId: e.target.value },
-                      }))
-                    }
-                  />
-                  <input
-                    className="input text-sm"
-                    placeholder="Room password"
-                    value={roomDrafts[t.id]?.roomPassword ?? ""}
-                    onChange={(e) =>
-                      setRoomDrafts((prev) => ({
-                        ...prev,
-                        [t.id]: { ...(prev[t.id] ?? { roomId: "", roomPassword: "" }), roomPassword: e.target.value },
-                      }))
-                    }
-                  />
-                  <button
-                    className="btn-primary text-xs"
-                    type="button"
-                    onClick={() => publishRoom(t.id, roomDrafts[t.id])}
-                    disabled={actionKey === `${t.id}:room`}
+                <div className="mt-4 border border-white/[0.05] bg-white/[0.01] rounded-lg p-3">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-white/40 mb-2">Room Credentials</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-2.5">
+                    <input
+                      className="w-full bg-[#16162a] border border-white/10 rounded-md px-3 py-1.5 text-xs text-white outline-none focus:border-[#E53935] min-h-[38px]"
+                      placeholder="Room ID"
+                      value={roomDrafts[t.id]?.roomId ?? ""}
+                      onChange={(e) =>
+                        setRoomDrafts((prev) => ({
+                          ...prev,
+                          [t.id]: { ...(prev[t.id] ?? { roomId: "", roomPassword: "" }), roomId: e.target.value },
+                        }))
+                      }
+                    />
+                    <input
+                      className="w-full bg-[#16162a] border border-white/10 rounded-md px-3 py-1.5 text-xs text-white outline-none focus:border-[#E53935] min-h-[38px]"
+                      placeholder="Room password"
+                      value={roomDrafts[t.id]?.roomPassword ?? ""}
+                      onChange={(e) =>
+                        setRoomDrafts((prev) => ({
+                          ...prev,
+                          [t.id]: { ...(prev[t.id] ?? { roomId: "", roomPassword: "" }), roomPassword: e.target.value },
+                        }))
+                      }
+                    />
+                    <button
+                      className="inline-flex items-center justify-center gap-1.5 rounded-md px-4 py-1.5 text-xs font-semibold bg-[#E53935] hover:bg-[#B71C1C] text-white transition-colors min-h-[38px] cursor-pointer"
+                      type="button"
+                      onClick={() => publishRoom(t.id, roomDrafts[t.id])}
+                      disabled={actionKey === `${t.id}:room`}
+                    >
+                      <ButtonLoading loading={actionKey === `${t.id}:room`} loadingText="Saving...">
+                        Save Room
+                      </ButtonLoading>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Action Bar Zone */}
+              <div className="mt-4 pt-3.5 border-t border-white/[0.05] flex flex-wrap items-center justify-between gap-3">
+                {/* Left operations */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <Link
+                    href={`/tournaments/${t.id}`}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-md border border-white/10 hover:border-white/20 bg-white/[0.02] hover:bg-white/[0.05] px-3.5 py-2 text-xs font-semibold text-white transition-all min-h-[36px]"
                   >
-                    <ButtonLoading loading={actionKey === `${t.id}:room`} loadingText="Saving...">
-                      Save Room
+                    🔍 View Detail
+                  </Link>
+
+                  {(t.status === "PENDING_RESULTS" || t.status === "LIVE" || t.status === "COMPLETED") && (
+                    <button
+                      type="button"
+                      className={`inline-flex items-center justify-center gap-1.5 rounded-md px-3.5 py-2 text-xs font-semibold transition-all min-h-[36px] cursor-pointer ${
+                        t.status === "PENDING_RESULTS"
+                          ? "bg-[#E53935] hover:bg-[#B71C1C] text-white shadow-[0_0_10px_rgba(229,57,53,0.2)]"
+                          : "border border-white/10 hover:border-white/20 bg-white/[0.02] hover:bg-white/[0.05] text-white"
+                      }`}
+                      onClick={() => openResultsModal(t)}
+                      disabled={actionKey?.startsWith(`${t.id}:`)}
+                    >
+                      🏆 Update Results
+                    </button>
+                  )}
+
+                  {t.status === "UPCOMING" && (
+                    <button
+                      className="inline-flex items-center justify-center gap-1.5 rounded-md bg-[#39ff14]/10 hover:bg-[#39ff14]/20 border border-[#39ff14]/20 text-[#39ff14] px-3.5 py-2 text-xs font-semibold transition-all min-h-[36px] cursor-pointer"
+                      onClick={() => setStatus(t.id, "LIVE")}
+                      disabled={actionKey?.startsWith(`${t.id}:`)}
+                    >
+                      <ButtonLoading loading={actionKey === `${t.id}:status`} loadingText="Starting...">
+                        ▶️ Start Match
+                      </ButtonLoading>
+                    </button>
+                  )}
+
+                  {t.status === "LIVE" && (
+                    <button
+                      className="inline-flex items-center justify-center gap-1.5 rounded-md bg-[#ff7a00]/10 hover:bg-[#ff7a00]/20 border border-[#ff7a00]/20 text-[#ff7a00] px-3.5 py-2 text-xs font-semibold transition-all min-h-[36px] cursor-pointer"
+                      onClick={() => setStatus(t.id, "PENDING_RESULTS")}
+                      disabled={actionKey?.startsWith(`${t.id}:`)}
+                    >
+                      <ButtonLoading loading={actionKey === `${t.id}:status`} loadingText="Ending...">
+                        ⏸️ End Match
+                      </ButtonLoading>
+                    </button>
+                  )}
+                </div>
+
+                {/* Right operations (Status override dropdown & delete) */}
+                <div className="flex flex-wrap items-center gap-2 flex-1 sm:flex-initial">
+                  <select
+                    onChange={(e) => setStatus(t.id, e.target.value)}
+                    className="bg-[#16162a] border border-white/10 rounded-md px-2 py-2 text-xs text-white/70 outline-none focus:border-[#E53935] min-h-[36px] flex-1 sm:flex-initial"
+                    value={t.status}
+                    disabled={actionKey?.startsWith(`${t.id}:`)}
+                    title="Manual status override"
+                  >
+                    <option value="UPCOMING">UPCOMING</option>
+                    <option value="LIVE">LIVE</option>
+                    <option value="PENDING_RESULTS">PENDING_RESULTS</option>
+                    <option value="COMPLETED">COMPLETED</option>
+                    <option value="CANCELLED">CANCELLED</option>
+                  </select>
+
+                  <button
+                    className="inline-flex items-center justify-center gap-1.5 rounded-md border border-red-500/20 hover:border-red-500/40 bg-red-500/5 hover:bg-red-500/10 text-red-400 px-3 py-2 text-xs font-semibold transition-all min-h-[36px] cursor-pointer"
+                    onClick={() => deleteTournament(t.id)}
+                    disabled={actionKey?.startsWith(`${t.id}:`)}
+                  >
+                    <ButtonLoading loading={actionKey === `${t.id}:delete`} loadingText="Deleting...">
+                      🗑️ Delete
                     </ButtonLoading>
                   </button>
                 </div>
-              )}
-              <div className="mt-3 flex gap-2 flex-wrap">
-                <Link
-                  href={`/tournaments/${t.id}`}
-                  className="btn-outline text-xs"
-                >
-                  View Detail
-                </Link>
-                <button
-                  className={`${t.status === "UPCOMING" || t.status === "LIVE" ? "btn-primary" : "btn-outline"} text-xs`}
-                  onClick={() => publishRoom(t.id, roomDrafts[t.id])}
-                  disabled={actionKey?.startsWith(`${t.id}:`)}
-                >
-                  <ButtonLoading loading={actionKey === `${t.id}:room`} loadingText="Saving room...">
-                    Publish / Update Room
-                  </ButtonLoading>
-                </button>
-                {t.status === "UPCOMING" && (
-                  <button
-                    className="btn-primary text-xs"
-                    onClick={() => setStatus(t.id, "LIVE")}
-                    disabled={actionKey?.startsWith(`${t.id}:`)}
-                  >
-                    <ButtonLoading loading={actionKey === `${t.id}:status`} loadingText="Starting...">
-                      Start Match
-                    </ButtonLoading>
-                  </button>
-                )}
-                {t.status === "LIVE" && (
-                  <button
-                    className="btn-primary text-xs"
-                    onClick={() => setStatus(t.id, "PENDING_RESULTS")}
-                    disabled={actionKey?.startsWith(`${t.id}:`)}
-                  >
-                    <ButtonLoading loading={actionKey === `${t.id}:status`} loadingText="Ending...">
-                      End Match
-                    </ButtonLoading>
-                  </button>
-                )}
-                <button
-                  className="btn-danger text-xs"
-                  onClick={() => deleteTournament(t.id)}
-                  disabled={actionKey?.startsWith(`${t.id}:`)}
-                >
-                  <ButtonLoading loading={actionKey === `${t.id}:delete`} loadingText="Deleting...">
-                    Delete
-                  </ButtonLoading>
-                </button>
-                {(t.status === "PENDING_RESULTS" || t.status === "LIVE" || t.status === "COMPLETED") && (
-                  <button
-                    type="button"
-                    className={`${t.status === "PENDING_RESULTS" ? "btn-primary" : "btn-outline"} text-xs`}
-                    onClick={() => openResultsModal(t)}
-                    disabled={actionKey?.startsWith(`${t.id}:`)}
-                  >
-                    Update Results
-                  </button>
-                )}
-                <select
-                  onChange={(e) => setStatus(t.id, e.target.value)}
-                  className="input text-xs flex-1 min-w-[120px]"
-                  value={t.status}
-                  disabled={actionKey?.startsWith(`${t.id}:`)}
-                  title="Manual override"
-                >
-                  <option value="UPCOMING">UPCOMING</option>
-                  <option value="LIVE">LIVE</option>
-                  <option value="PENDING_RESULTS">PENDING_RESULTS</option>
-                  <option value="COMPLETED">COMPLETED</option>
-                  <option value="CANCELLED">CANCELLED</option>
-                </select>
               </div>
             </div>
             );

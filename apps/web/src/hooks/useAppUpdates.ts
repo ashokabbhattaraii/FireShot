@@ -84,7 +84,7 @@ export function useAppUpdates(): UseAppUpdatesReturn {
     const intervalId = setInterval(checkUpdates, 6 * 60 * 60 * 1000);
 
     return () => clearInterval(intervalId);
-  }, []);
+  }, [checkUpdates]);
 
   return {
     updateAvailable: updateResult?.updateAvailable && !dismissed ? true : false,

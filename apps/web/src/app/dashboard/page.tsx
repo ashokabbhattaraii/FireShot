@@ -6,6 +6,7 @@ import {
   Bell,
   ChevronRight,
   CreditCard,
+  ShieldCheck,
   Trophy,
   UserCircle,
   Wallet,
@@ -126,6 +127,15 @@ export default function Dashboard() {
       )}
 
       <section className="space-y-2">
+        {user.role !== "PLAYER" && (
+          <MenuItem
+            icon={<ShieldCheck size={19} className="text-amber-500" />}
+            title="Admin Command Center"
+            detail="Manage tournaments, users, and finances"
+            href="/admin"
+            tone="text-amber-400"
+          />
+        )}
         <MenuItem
           icon={<UserCircle size={19} />}
           title="Player Profile"

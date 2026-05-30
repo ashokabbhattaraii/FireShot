@@ -199,7 +199,7 @@ export function HeroSlider() {
 
       <style jsx global>{`
         .hero-slider-shell {
-          height: 140px;
+          height: 180px;
           width: 100%;
         }
         @media (min-width: 768px) {
@@ -275,22 +275,22 @@ function FeatureBannerSlide({ slide }: { slide: FeatureSlide }) {
       <div className="absolute -right-20 top-0 h-56 w-56 rounded-full bg-white/10 blur-3xl" />
       <div className="absolute -bottom-24 left-0 h-60 w-60 rounded-full bg-black/20 blur-3xl" />
 
-      <div className="relative z-10 flex w-full flex-col justify-center gap-4 p-4 md:grid md:grid-cols-[1.1fr_0.9fr] md:items-center md:gap-6 md:p-6">
+      <div className="relative z-10 flex h-full w-full flex-col justify-center gap-2 p-4 md:grid md:grid-cols-[1.1fr_0.9fr] md:items-center md:gap-6 md:p-6">
         <div className="flex flex-col justify-between">
           <div>
             <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/85">
               <Icon size={12} />
               {slide.badge}
             </span>
-            <h1 className="mt-3 max-w-xl font-display text-[clamp(1.35rem,3vw,2.6rem)] font-bold leading-[0.98] text-white drop-shadow-[0_8px_24px_rgba(0,0,0,0.35)]">
+            <h1 className="mt-1.5 max-w-xl font-display text-[clamp(1.15rem,3vw,2.6rem)] font-bold leading-[1.0] text-white drop-shadow-[0_8px_24px_rgba(0,0,0,0.35)]">
               {slide.title}
             </h1>
-            <p className="mt-2 line-clamp-2 max-w-xl text-xs leading-5 text-white/80 md:text-sm">
+            <p className="mt-1 line-clamp-1 sm:line-clamp-2 max-w-xl text-xs leading-relaxed text-white/80 md:text-sm">
               {slide.subtitle}
             </p>
           </div>
 
-          <div className="mt-3 hidden flex-wrap gap-2 sm:flex">
+          <div className="mt-2 hidden flex-wrap gap-2 sm:flex">
             {slide.highlights.map((item) => (
               <span
                 key={item}
@@ -301,7 +301,7 @@ function FeatureBannerSlide({ slide }: { slide: FeatureSlide }) {
             ))}
           </div>
 
-          <div className="mt-4 flex flex-wrap gap-2">
+          <div className="mt-2 flex flex-wrap gap-2">
             <Link href={slide.ctaLink} className="btn-primary text-xs md:text-sm">
               {slide.ctaText}
               <ArrowRight size={14} />

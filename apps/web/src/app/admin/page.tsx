@@ -6,7 +6,7 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { useAdminNav } from "@/lib/useAdminNav";
 import { fmtDate, npr } from "@/lib/utils";
-import { PageLoading } from "@/components/ui";
+import { PageLoading, StatusBadge } from "@/components/ui";
 
 export default function AdminOverview() {
   const { user } = useAuth();
@@ -20,7 +20,7 @@ export default function AdminOverview() {
       .catch((e: any) => setErr(e.message ?? "Could not load admin stats"));
   }, []);
 
-  if (err) return <p style={{ color: "var(--fs-red)" }}>{err}</p>;
+  if (err) return <p className="text-red-500 font-semibold p-4">{err}</p>;
   if (!stats) return <PageLoading label="Loading admin overview..." />;
 
   const roleName = String(user?.roleRef?.name ?? user?.role ?? "ADMIN").toUpperCase();
@@ -52,65 +52,50 @@ export default function AdminOverview() {
     .slice(0, 4);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-      {/* Header */}
-      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+    <div className="flex flex-col gap-6">
+      {/* Header Zone */}
+      <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-white/[0.05]">
         <div>
-          <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, color: "var(--fs-text-3)", textTransform: "uppercase" }}>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-[#E53935] mb-1">
             Admin Command Center
           </p>
-          <h1 style={{ fontSize: "clamp(20px, 4vw, 28px)", fontWeight: 800, color: "var(--fs-text-1)", marginTop: 4 }}>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-wide">
             {workspaceTitle}
           </h1>
         </div>
         {roleName === "SUPPORT" ? (
-          <Link href="/admin/support" className="fs-btn fs-btn-primary fs-btn-sm">
+          <Link href="/admin/support" className="inline-flex items-center justify-center gap-1.5 rounded-md bg-[#E53935] hover:bg-[#B71C1C] text-white px-4 py-2 text-xs font-bold transition-all shadow-[0_0_15px_rgba(229,57,53,0.2)]">
             Open Support Queue
           </Link>
         ) : (
-          <Link href="/admin/tournaments" className="fs-btn fs-btn-primary fs-btn-sm">
+          <Link href="/admin/tournaments" className="inline-flex items-center justify-center gap-1.5 rounded-md bg-[#E53935] hover:bg-[#B71C1C] text-white px-4 py-2 text-xs font-bold transition-all shadow-[0_0_15px_rgba(229,57,53,0.2)]">
             + Create Tournament
           </Link>
         )}
       </div>
 
+      {/* Quick Navigation Workspace Tiles */}
       {workspaceTiles.length > 0 && (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 210px), 1fr))",
-            gap: 10,
-          }}
-        >
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
           {workspaceTiles.map((tile) => (
             <Link
               key={tile.href}
               href={tile.href}
-              style={{
-                textDecoration: "none",
-                borderRadius: 12,
-                border: "1px solid var(--fs-border)",
-                background: "var(--fs-surface-1)",
-                padding: 12,
-                display: "block",
-              }}
+              className="group block p-4 rounded-xl border border-white/5 bg-gradient-to-br from-white/[0.01] to-transparent hover:from-white/[0.04] hover:to-transparent hover:border-[#E53935]/20 hover:shadow-[0_0_15px_rgba(229,57,53,0.05)] transition-all duration-300 transform hover:-translate-y-0.5"
             >
-              <p style={{ fontSize: 13, fontWeight: 700, color: "var(--fs-text-1)" }}>{tile.title}</p>
-              <p style={{ marginTop: 4, fontSize: 11, color: "var(--fs-text-3)" }}>{tile.hint}</p>
+              <p className="text-sm font-bold text-white group-hover:text-[#E53935] transition-colors">
+                {tile.title}
+              </p>
+              <p className="mt-1 text-xs text-white/50 leading-normal">
+                {tile.hint}
+              </p>
             </Link>
           ))}
         </div>
       )}
 
-      {/* Stats Grid */}
-      <div
-        className="admin-stats-grid"
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 150px), 1fr))",
-          gap: 12,
-        }}
-      >
+      {/* Statistics Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3.5">
         <StatCard
           icon={<Users size={18} />}
           label="Users"
@@ -127,8 +112,8 @@ export default function AdminOverview() {
           icon={<Bell size={18} />}
           label="Queue"
           value={queue.reduce((sum, item) => sum + item.value, 0)}
-          detail="Needs review"
-          accent
+          detail="Pending review cases"
+          accent={queue.reduce((sum, item) => sum + item.value, 0) > 0}
         />
         <StatCard
           icon={<Banknote size={18} />}
@@ -140,71 +125,64 @@ export default function AdminOverview() {
           icon={<ShieldCheck size={18} />}
           label="Wallets"
           value={npr(stats.walletLiabilityNpr)}
-          detail="Player balance"
+          detail="Player total balance"
         />
       </div>
 
-      {/* Review Queue + Recent Payments */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 300px), 1fr))",
-          gap: 16,
-        }}
-      >
-        <div className="fs-card fs-card-body">
-          <h2 style={{ fontSize: 16, fontWeight: 700, color: "var(--fs-text-1)" }}>Review Queue</h2>
-          <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+      {/* Review Queue & Recent Payments split */}
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_1.8fr] gap-6">
+        {/* Review Queue Card */}
+        <div className="card">
+          <h2 className="text-base font-bold text-white mb-4 flex items-center gap-2">
+            🔔 Review Queue
+          </h2>
+          <div className="flex flex-col gap-2.5">
             {queue.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: "10px 12px",
-                  borderRadius: 8,
-                  background: "var(--fs-surface-2)",
-                  border: "1px solid var(--fs-border)",
-                  textDecoration: "none",
-                  color: "var(--fs-text-1)",
-                  fontSize: 13,
-                }}
+                className="flex items-center justify-between p-3.5 rounded-lg border border-white/5 bg-white/[0.01] hover:bg-white/[0.04] hover:border-[#E53935]/20 hover:shadow-[0_0_12px_rgba(229,57,53,0.05)] transition-all text-white text-xs font-semibold"
               >
                 <span>{item.label}</span>
-                <span style={{ fontWeight: 700, color: item.value > 0 ? "var(--fs-amber)" : "var(--fs-green)" }}>
-                  {item.value}
+                <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${
+                  item.value > 0
+                    ? "bg-[#ff7a00]/10 text-[#ff7a00]"
+                    : "bg-[#39ff14]/10 text-[#39ff14]"
+                }`}>
+                  {item.value > 0 ? `${item.value} Pending` : "Clear"}
                 </span>
               </Link>
             ))}
           </div>
         </div>
 
-        <div className="fs-card fs-card-body">
-          <h2 style={{ fontSize: 16, fontWeight: 700, color: "var(--fs-text-1)" }}>Recent Payments</h2>
+        {/* Recent Payments Table Card */}
+        <div className="card">
+          <h2 className="text-base font-bold text-white mb-4 flex items-center gap-2">
+            💳 Recent Payments
+          </h2>
           {stats.recentPayments.length === 0 ? (
-            <p style={{ marginTop: 12, fontSize: 13, color: "var(--fs-text-3)" }}>No payments yet.</p>
+            <p className="text-xs text-white/40 py-6 text-center">No payments recorded yet.</p>
           ) : (
-            <div style={{ overflowX: "auto", marginTop: 12 }}>
-              <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse", minWidth: 400 }}>
+            <div className="table-wrap">
+              <table className="data-table">
                 <thead>
-                  <tr style={{ borderBottom: "1px solid var(--fs-border)" }}>
-                    <th style={{ textAlign: "left", padding: "6px 8px", color: "var(--fs-text-3)", fontWeight: 600 }}>User</th>
-                    <th style={{ textAlign: "left", padding: "6px 8px", color: "var(--fs-text-3)", fontWeight: 600 }}>Amount</th>
-                    <th style={{ textAlign: "left", padding: "6px 8px", color: "var(--fs-text-3)", fontWeight: 600 }}>Status</th>
-                    <th style={{ textAlign: "left", padding: "6px 8px", color: "var(--fs-text-3)", fontWeight: 600 }}>Date</th>
+                  <tr>
+                    <th>User</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                    <th>Date</th>
                   </tr>
                 </thead>
                 <tbody>
                   {stats.recentPayments.slice(0, 5).map((p: any) => (
-                    <tr key={p.id} style={{ borderBottom: "1px solid var(--fs-border)" }}>
-                      <td style={{ padding: "8px", color: "var(--fs-text-1)" }}>{p.user.profile?.ign ?? p.user.email}</td>
-                      <td style={{ padding: "8px", color: "var(--fs-text-1)" }}>{npr(p.amountNpr)}</td>
-                      <td style={{ padding: "8px", color: p.status === "APPROVED" ? "var(--fs-green)" : p.status === "REJECTED" ? "var(--fs-red)" : "var(--fs-amber)" }}>
-                        {p.status}
+                    <tr key={p.id}>
+                      <td className="font-semibold text-white/90">{p.user.profile?.ign ?? p.user.email}</td>
+                      <td className="font-extrabold text-yellow-400">{npr(p.amountNpr)}</td>
+                      <td>
+                        <StatusBadge status={p.status} />
                       </td>
-                      <td style={{ padding: "8px", color: "var(--fs-text-3)" }}>{fmtDate(p.createdAt)}</td>
+                      <td className="text-xs text-white/50">{fmtDate(p.createdAt)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -214,26 +192,32 @@ export default function AdminOverview() {
         </div>
       </div>
 
-      {/* Newest Players */}
-      <div className="fs-card fs-card-body">
-        <h2 style={{ fontSize: 16, fontWeight: 700, color: "var(--fs-text-1)" }}>Newest Players</h2>
-        <div style={{ overflowX: "auto", marginTop: 12 }}>
-          <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse", minWidth: 400 }}>
+      {/* Newest Players Card */}
+      <div className="card">
+        <h2 className="text-base font-bold text-white mb-4 flex items-center gap-2">
+          👥 Newest Players
+        </h2>
+        <div className="table-wrap">
+          <table className="data-table">
             <thead>
-              <tr style={{ borderBottom: "1px solid var(--fs-border)" }}>
-                <th style={{ textAlign: "left", padding: "6px 8px", color: "var(--fs-text-3)", fontWeight: 600 }}>Email</th>
-                <th style={{ textAlign: "left", padding: "6px 8px", color: "var(--fs-text-3)", fontWeight: 600 }}>IGN</th>
-                <th style={{ textAlign: "left", padding: "6px 8px", color: "var(--fs-text-3)", fontWeight: 600 }}>Role</th>
-                <th style={{ textAlign: "left", padding: "6px 8px", color: "var(--fs-text-3)", fontWeight: 600 }}>Joined</th>
+              <tr>
+                <th>Email</th>
+                <th>IGN</th>
+                <th>Role</th>
+                <th>Joined</th>
               </tr>
             </thead>
             <tbody>
               {stats.recentUsers.map((u: any) => (
-                <tr key={u.id} style={{ borderBottom: "1px solid var(--fs-border)" }}>
-                  <td style={{ padding: "8px", color: "var(--fs-text-1)", maxWidth: 150, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{u.email}</td>
-                  <td style={{ padding: "8px", color: "var(--fs-text-1)" }}>{u.profile?.ign ?? "-"}</td>
-                  <td style={{ padding: "8px", color: "var(--fs-text-2)" }}>{u.role}</td>
-                  <td style={{ padding: "8px", color: "var(--fs-text-3)" }}>{fmtDate(u.createdAt)}</td>
+                <tr key={u.id}>
+                  <td className="font-mono text-xs text-white/80 max-w-[180px] truncate">{u.email}</td>
+                  <td className="font-semibold text-white/90">{u.profile?.ign ?? "—"}</td>
+                  <td>
+                    <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-white/5 border border-white/5 text-white/55">
+                      {u.role}
+                    </span>
+                  </td>
+                  <td className="text-xs text-white/50">{fmtDate(u.createdAt)}</td>
                 </tr>
               ))}
             </tbody>
@@ -247,35 +231,28 @@ export default function AdminOverview() {
 function StatCard({ icon, label, value, detail, accent }: any) {
   return (
     <div
-      className="stat-card"
-      style={{
-        padding: 14,
-        borderRadius: 12,
-        background: "var(--fs-surface-1)",
-        border: accent ? "1px solid var(--fs-red)" : "1px solid var(--fs-border)",
-        minWidth: 0,
-      }}
+      className={`relative overflow-hidden rounded-xl border p-4.5 transition-all duration-300 ${
+        accent
+          ? "border-[#ff2d75]/30 bg-gradient-to-br from-[#ff2d75]/10 to-transparent shadow-[0_0_15px_rgba(255,45,117,0.08)]"
+          : "border-white/5 bg-gradient-to-br from-white/[0.01] to-transparent hover:border-white/10"
+      }`}
     >
-      <div
-        style={{
-          width: 32,
-          height: 32,
-          borderRadius: 8,
-          background: "var(--fs-surface-2)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: "var(--fs-red)",
-          marginBottom: 10,
-        }}
-      >
+      {accent && (
+        <span className="absolute right-3.5 top-3.5 flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#ff2d75] opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-[#ff2d75]"></span>
+        </span>
+      )}
+      <div className={`w-8 h-8 rounded-lg flex items-center justify-center mb-3 ${
+        accent
+          ? "bg-[#ff2d75]/15 text-[#ff2d75]"
+          : "bg-white/5 text-white/70"
+      }`}>
         {icon}
       </div>
-      <p className="stat-label" style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.5, color: "var(--fs-text-3)", textTransform: "uppercase" }}>
-        {label}
-      </p>
-      <p style={{ fontSize: 20, fontWeight: 800, color: "var(--fs-text-1)", marginTop: 2 }}>{value}</p>
-      <p style={{ fontSize: 11, color: "var(--fs-text-3)", marginTop: 2 }}>{detail}</p>
+      <p className="text-[10px] font-bold uppercase tracking-wider text-white/45">{label}</p>
+      <p className="mt-1 text-xl font-extrabold text-white tracking-wide">{value}</p>
+      <p className="mt-1.5 text-[10px] text-white/45 truncate leading-none">{detail}</p>
     </div>
   );
 }

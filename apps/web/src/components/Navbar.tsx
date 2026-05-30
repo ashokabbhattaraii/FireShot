@@ -59,7 +59,9 @@ export function Navbar() {
         </Link>
 
         <div className="flex items-center gap-2">
-          <ViewportToggle compact />
+          <div className="hidden sm:block">
+            <ViewportToggle compact />
+          </div>
           {user && walletBalance !== null && (
             <Link
               href="/wallet"
@@ -87,7 +89,7 @@ export function Navbar() {
               </Link>
               <Link
                 href="/my-matches"
-                className="flex h-9 w-9 items-center justify-center rounded-lg"
+                className="hidden sm:flex h-9 w-9 items-center justify-center rounded-lg"
                 style={{ background: 'var(--fs-surface-2)', border: '1px solid var(--fs-border)' }}
                 aria-label="My Matches"
               >
@@ -96,17 +98,19 @@ export function Navbar() {
               {user.role !== "PLAYER" && (
                 <Link
                   href="/admin"
-                  className="flex h-9 w-9 items-center justify-center rounded-lg"
+                  className="hidden sm:flex h-9 w-9 items-center justify-center rounded-lg"
                   style={{ background: 'var(--fs-amber-dim)', border: '1px solid rgba(255,143,0,0.3)' }}
                   aria-label="Admin"
                 >
                   <Shield size={17} style={{ color: 'var(--fs-amber)' }} />
                 </Link>
               )}
-              <NavAvatar src={user.avatarUrl} />
+              <div className="hidden sm:block">
+                <NavAvatar src={user.avatarUrl} />
+              </div>
               <button
                 onClick={logout}
-                className="flex h-9 w-9 items-center justify-center rounded-lg"
+                className="hidden sm:flex h-9 w-9 items-center justify-center rounded-lg"
                 style={{ background: 'var(--fs-surface-2)', border: '1px solid var(--fs-border)' }}
                 aria-label="Logout"
               >

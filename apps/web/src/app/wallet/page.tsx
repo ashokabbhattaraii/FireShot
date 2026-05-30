@@ -7,7 +7,7 @@ import { ButtonLoading, EmptyState, LoadingState, StatusBadge } from "@/componen
 import { useAuth } from "@/lib/auth-context";
 import { useFlags } from "@/lib/flags";
 import { GoogleAuthPanel } from "@/components/GoogleAuthPanel";
-import { ArrowUpRight, Plus, Copy, Check, ChevronDown, ChevronUp, Gift } from "lucide-react";
+import { ArrowUpRight, Plus, Copy, Check, ChevronDown, ChevronUp, Gift, Wallet, ArrowDownLeft, FileText, Landmark } from "lucide-react";
 
 export default function WalletPage() {
   const { user, loading } = useAuth();
@@ -116,29 +116,39 @@ export default function WalletPage() {
   const depositNote = paymentConfig?.deposit_instructions || "Send the exact amount to the account shown above. Then upload a screenshot of the payment confirmation.";
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+    <div className="space-y-4">
       {/* Balance Card */}
-      <div style={{ background: "var(--fs-surface-1)", borderRadius: 16, overflow: "hidden", border: "0.5px solid var(--fs-border)" }}>
-        <div style={{ height: 3, background: "linear-gradient(90deg, var(--fs-red), var(--fs-gold))" }} />
-        <div style={{ padding: "24px 20px", textAlign: "center" }}>
-          <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: 1, color: "var(--fs-text-3)", textTransform: "uppercase" }}>Available Balance</p>
-          <p style={{ fontSize: 40, fontWeight: 800, color: "var(--fs-text-1)", marginTop: 8 }}>
+      <div className="relative overflow-hidden rounded-2xl border border-white/5 bg-gradient-to-br from-[#1c1233] via-[#0f0a26] to-[#1c1233] shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,215,0,0.06),transparent_35%)]" />
+        <div className="h-[3px] bg-gradient-to-r from-[#E53935] via-[#FFD700] to-[#E53935]" />
+        <div className="relative z-10 px-5 py-6 text-center">
+          <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-white/5">
+            <Wallet className="text-[#FFD700]" size={18} />
+          </div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/50">Available Balance</p>
+          <p className="mt-1 font-display text-4xl font-extrabold text-white drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]">
             {npr(data.wallet.balanceNpr)}
           </p>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 20 }}>
+          <div className="mt-5 grid grid-cols-2 gap-3">
             <button
               onClick={() => setTab("deposit")}
-              className="fs-btn fs-btn-full"
-              style={{ background: tab === "deposit" ? "var(--fs-red)" : "var(--fs-surface-2)", color: tab === "deposit" ? "#fff" : "var(--fs-text-2)", border: tab === "deposit" ? "none" : "1px solid var(--fs-border)" }}
+              className={`inline-flex items-center justify-center gap-2 rounded-xl h-11 text-xs font-bold transition-all duration-200 ${
+                tab === "deposit"
+                  ? "bg-[#E53935] text-white shadow-[0_4px_16px_rgba(229,57,53,0.3)]"
+                  : "bg-white/5 text-white/70 border border-white/5 hover:bg-white/10"
+              }`}
             >
-              <Plus size={16} /> Deposit
+              <Plus size={14} /> Deposit
             </button>
             <button
               onClick={() => setTab("withdraw")}
-              className="fs-btn fs-btn-full"
-              style={{ background: tab === "withdraw" ? "var(--fs-red)" : "var(--fs-surface-2)", color: tab === "withdraw" ? "#fff" : "var(--fs-text-2)", border: tab === "withdraw" ? "none" : "1px solid var(--fs-border)" }}
+              className={`inline-flex items-center justify-center gap-2 rounded-xl h-11 text-xs font-bold transition-all duration-200 ${
+                tab === "withdraw"
+                  ? "bg-[#E53935] text-white shadow-[0_4px_16px_rgba(229,57,53,0.3)]"
+                  : "bg-white/5 text-white/70 border border-white/5 hover:bg-white/10"
+              }`}
             >
-              <ArrowUpRight size={16} /> Withdraw
+              <ArrowUpRight size={14} /> Withdraw
             </button>
           </div>
         </div>
@@ -147,83 +157,86 @@ export default function WalletPage() {
       {referral && (
         <Link
           href="/refer"
-          className="block rounded-xl border p-4"
-          style={{ background: "rgba(255,193,7,0.08)", borderColor: "rgba(255,193,7,0.22)" }}
+          className="block rounded-2xl border border-yellow-500/10 bg-gradient-to-br from-yellow-500/[0.04] to-amber-500/[0.02] p-4 transition-all duration-200 hover:border-yellow-500/20"
         >
           <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--fs-gold)" }}>
-                Refer & Earn
+            <div className="min-w-0">
+              <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-[#FFD700]">
+                Refer & Earn Bonus
               </p>
-              <p className="mt-1 text-sm font-bold" style={{ color: "var(--fs-text-1)" }}>
-                Your code: <span className="font-mono tracking-[0.18em]">{referral.code}</span>
+              <p className="mt-1 text-sm font-bold text-white flex items-center gap-1.5">
+                Your code: <span className="font-mono tracking-[0.15em] bg-yellow-500/10 px-2 py-0.5 rounded text-[#FFD700] text-xs">{referral.code}</span>
               </p>
-              <p className="mt-1 text-xs" style={{ color: "var(--fs-text-3)" }}>
-                Earn Rs {referral.referrerDepositRewardNpr} when a referred user makes their first deposit.
+              <p className="mt-1 text-xs text-white/60">
+                Earn Rs {referral.referrerDepositRewardNpr} when friends make their first deposit.
               </p>
             </div>
-            <Gift size={22} style={{ color: "var(--fs-gold)" }} />
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-yellow-500/10">
+              <Gift size={18} className="text-[#FFD700]" />
+            </div>
           </div>
         </Link>
       )}
 
       {tab === "deposit" ? (
-        <form onSubmit={submitDeposit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <form onSubmit={submitDeposit} className="space-y-4">
           {/* Payment QR Section */}
-          <div style={{ background: "var(--fs-surface-1)", borderRadius: 14, border: "0.5px solid var(--fs-border)", padding: 20 }}>
-            <p style={{ fontSize: 14, fontWeight: 700, color: "var(--fs-text-1)", marginBottom: 16 }}>Step 1: Send Payment</p>
+          <div className="rounded-2xl border border-white/5 bg-gradient-to-b from-[#13132a] to-[#0f0f1f] p-5">
+            <p className="text-sm font-bold text-white mb-4 flex items-center gap-2">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#E53935] text-[10px] text-white font-bold">1</span>
+              Send Payment
+            </p>
 
             {/* Method selector */}
-            <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+            <div className="grid grid-cols-3 gap-2 mb-4">
               {["esewa", "khalti", "bank"].map((m) => (
                 <button
                   key={m}
                   type="button"
                   onClick={() => setDeposit({ ...deposit, method: m })}
-                  style={{
-                    flex: 1, padding: "10px 8px", borderRadius: 10, fontSize: 13, fontWeight: 600,
-                    background: deposit.method === m ? "var(--fs-green-dim)" : "var(--fs-surface-2)",
-                    border: deposit.method === m ? "1px solid var(--fs-green)" : "1px solid var(--fs-border)",
-                    color: deposit.method === m ? "var(--fs-green)" : "var(--fs-text-3)",
-                    cursor: "pointer", textTransform: "capitalize",
-                  }}
+                  className={`py-2.5 px-2 rounded-xl text-xs font-bold transition-all duration-200 border text-center capitalize ${
+                    deposit.method === m
+                      ? "bg-emerald-500/10 border-emerald-500/35 text-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.1)]"
+                      : "bg-[#16162a] border-white/5 text-white/50 hover:bg-[#1e1e38] hover:text-white"
+                  }`}
                 >
-                  {m === "esewa" ? "eSewa" : m === "khalti" ? "Khalti" : "Bank"}
+                  {m === "esewa" ? "eSewa" : m === "khalti" ? "Khalti" : "Bank Transfer"}
                 </button>
               ))}
             </div>
 
             {/* QR Code Display */}
             {qrImage && (
-              <div style={{ textAlign: "center", marginBottom: 16 }}>
-                <div style={{ background: "#fff", borderRadius: 12, padding: 12, display: "inline-block" }}>
+              <div className="text-center mb-4">
+                <div className="inline-block bg-white p-3 rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.5)]">
                   <img
                     src={qrImage}
                     alt="Payment QR"
-                    style={{ width: 180, height: 180, objectFit: "contain" }}
+                    className="w-44 h-44 object-contain mx-auto"
                   />
                 </div>
-                <p style={{ fontSize: 11, color: "var(--fs-text-3)", marginTop: 8 }}>Scan to pay via {deposit.method}</p>
+                <p className="text-[10px] text-white/40 mt-2 font-medium">Scan QR to pay via {deposit.method === "esewa" ? "eSewa" : deposit.method === "khalti" ? "Khalti" : "Banking app"}</p>
               </div>
             )}
 
             {/* Account Details */}
-            <div style={{ background: "var(--fs-surface-2)", borderRadius: 10, padding: 12 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                <span style={{ fontSize: 11, color: "var(--fs-text-3)" }}>Account Name</span>
-                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--fs-text-1)" }}>{paymentName}</span>
+            <div className="rounded-xl bg-[#16162a] border border-white/5 p-3.5 space-y-2">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-white/40">Account Name</span>
+                <span className="font-bold text-white">{paymentName}</span>
               </div>
               {paymentId && (
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontSize: 11, color: "var(--fs-text-3)" }}>Account/ID</span>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: "var(--fs-gold)", fontFamily: "monospace" }}>{paymentId}</span>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-white/40">Account / ID</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-mono font-bold text-[#FFD700] tracking-wider">{paymentId}</span>
                     <button
                       type="button"
                       onClick={() => copyToClipboard(paymentId)}
-                      style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}
+                      className="p-1 text-white/40 hover:text-white transition-colors"
+                      title="Copy account details"
                     >
-                      {copied ? <Check size={14} style={{ color: "var(--fs-green)" }} /> : <Copy size={14} style={{ color: "var(--fs-text-3)" }} />}
+                      {copied ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
                     </button>
                   </div>
                 </div>
@@ -231,23 +244,26 @@ export default function WalletPage() {
             </div>
 
             {/* Instructions */}
-            <div style={{ marginTop: 12, padding: "10px 12px", background: "var(--fs-amber-dim)", borderRadius: 8, borderLeft: "3px solid var(--fs-amber)" }}>
-              <p style={{ fontSize: 12, color: "var(--fs-amber)", lineHeight: 1.5 }}>{depositNote}</p>
+            <div className="mt-4 p-3 bg-amber-500/[0.06] rounded-xl border-l-[3px] border-amber-500 text-xs">
+              <p className="text-amber-200/90 leading-relaxed font-medium">{depositNote}</p>
             </div>
           </div>
 
           {/* Step 2: Fill details */}
-          <div style={{ background: "var(--fs-surface-1)", borderRadius: 14, border: "0.5px solid var(--fs-border)", padding: 20 }}>
-            <p style={{ fontSize: 14, fontWeight: 700, color: "var(--fs-text-1)", marginBottom: 16 }}>Step 2: Submit Proof</p>
+          <div className="rounded-2xl border border-white/5 bg-gradient-to-b from-[#13132a] to-[#0f0f1f] p-5">
+            <p className="text-sm font-bold text-white mb-4 flex items-center gap-2">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#E53935] text-[10px] text-white font-bold">2</span>
+              Submit Proof
+            </p>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div className="space-y-3.5">
               <div>
                 <label className="fs-label">Amount (NPR)</label>
                 <input
                   type="text"
                   inputMode="numeric"
                   pattern="[0-9]*"
-                  className="fs-input"
+                  className="input"
                   value={deposit.amountNpr}
                   onChange={(e) => {
                     const digits = e.target.value.replace(/\D/g, "");
@@ -258,8 +274,8 @@ export default function WalletPage() {
               <div>
                 <label className="fs-label">Transaction ID / Reference</label>
                 <input
-                  className="fs-input"
-                  placeholder="e.g. TXN2024050912345"
+                  className="input"
+                  placeholder="e.g. TXN2026050912345"
                   value={deposit.reference}
                   onChange={(e) => setDeposit({ ...deposit, reference: e.target.value })}
                 />
@@ -267,30 +283,26 @@ export default function WalletPage() {
               <div>
                 <label className="fs-label">Payment Screenshot</label>
                 <div
-                  style={{
-                    border: "2px dashed var(--fs-border-md)",
-                    borderRadius: 10,
-                    padding: "16px 12px",
-                    textAlign: "center",
-                    cursor: "pointer",
-                    background: "var(--fs-surface-2)",
-                  }}
+                  className="border-2 border-dashed border-white/10 rounded-xl p-5 text-center cursor-pointer bg-[#16162a] hover:bg-white/[0.02] transition-colors"
                   onClick={() => document.getElementById("proof-input")?.click()}
                 >
                   {proof ? (
-                    <p style={{ fontSize: 13, color: "var(--fs-green)" }}>{proof.name}</p>
+                    <p className="text-xs font-bold text-emerald-400 flex items-center justify-center gap-1.5">
+                      <FileText size={16} />
+                      {proof.name}
+                    </p>
                   ) : (
-                    <>
-                      <p style={{ fontSize: 13, color: "var(--fs-text-2)" }}>Tap to upload screenshot</p>
-                      <p style={{ fontSize: 11, color: "var(--fs-text-3)", marginTop: 4 }}>PNG, JPG up to 5MB</p>
-                    </>
+                    <div className="space-y-1">
+                      <p className="text-xs font-bold text-white/70">Tap to select or upload screenshot</p>
+                      <p className="text-[10px] text-white/40">PNG, JPG up to 5MB</p>
+                    </div>
                   )}
                 </div>
                 <input
                   id="proof-input"
                   type="file"
                   accept="image/*"
-                  style={{ display: "none" }}
+                  className="hidden"
                   onChange={(e) => setProof(e.target.files?.[0] ?? null)}
                 />
               </div>
@@ -298,27 +310,30 @@ export default function WalletPage() {
 
             <button
               type="submit"
-              className="fs-btn fs-btn-primary fs-btn-full"
-              style={{ marginTop: 16, height: 48 }}
+              className="fs-btn fs-btn-primary fs-btn-full mt-5 rounded-xl text-xs h-11"
               disabled={depositing || !isEnabled("DEPOSIT_ENABLED")}
             >
-              <ButtonLoading loading={depositing} loadingText="Submitting...">
+              <ButtonLoading loading={depositing} loadingText="Submitting details...">
                 {isEnabled("DEPOSIT_ENABLED") ? "Submit Deposit Request" : "Deposits Disabled"}
               </ButtonLoading>
             </button>
           </div>
         </form>
       ) : (
-        <form onSubmit={withdraw} style={{ background: "var(--fs-surface-1)", borderRadius: 14, border: "0.5px solid var(--fs-border)", padding: 20 }}>
-          <p style={{ fontSize: 14, fontWeight: 700, color: "var(--fs-text-1)", marginBottom: 16 }}>Withdraw Funds</p>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <form onSubmit={withdraw} className="rounded-2xl border border-white/5 bg-gradient-to-b from-[#13132a] to-[#0f0f1f] p-5">
+          <p className="text-sm font-bold text-white mb-4 flex items-center gap-2">
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#E53935] text-[10px] text-white font-bold">1</span>
+            Withdraw Funds
+          </p>
+
+          <div className="space-y-3.5">
             <div>
               <label className="fs-label">Amount (NPR)</label>
               <input
                 type="text"
                 inputMode="numeric"
                 pattern="[0-9]*"
-                className="fs-input"
+                className="input"
                 value={form.amountNpr}
                 onChange={(e) => {
                   const digits = e.target.value.replace(/\D/g, "");
@@ -328,66 +343,80 @@ export default function WalletPage() {
             </div>
             <div>
               <label className="fs-label">Method</label>
-              <select className="fs-input" value={form.method}
-                onChange={(e) => setForm({ ...form, method: e.target.value as any })}>
+              <select
+                className="input cursor-pointer"
+                value={form.method}
+                onChange={(e) => setForm({ ...form, method: e.target.value as any })}
+              >
                 <option value="esewa">eSewa</option>
                 <option value="khalti">Khalti</option>
-                <option value="bank">Bank</option>
+                <option value="bank">Bank Transfer</option>
               </select>
             </div>
             <div>
               <label className="fs-label">Account Number / ID</label>
-              <input className="fs-input" value={form.account} placeholder="Your eSewa/Khalti number or bank account"
-                onChange={(e) => setForm({ ...form, account: e.target.value })} required />
+              <input
+                className="input"
+                value={form.account}
+                placeholder="eSewa/Khalti phone number or bank account detail"
+                onChange={(e) => setForm({ ...form, account: e.target.value })}
+                required
+              />
             </div>
           </div>
-          <button type="submit" className="fs-btn fs-btn-primary fs-btn-full" style={{ marginTop: 16, height: 48 }} disabled={withdrawing || !isEnabled("WITHDRAWAL_ENABLED")}>
-            <ButtonLoading loading={withdrawing} loadingText="Processing...">
-              {isEnabled("WITHDRAWAL_ENABLED") ? "Request Withdrawal" : "Withdrawals Disabled"}
+
+          <button
+            type="submit"
+            className="fs-btn fs-btn-primary fs-btn-full mt-5 rounded-xl text-xs h-11"
+            disabled={withdrawing || !isEnabled("WITHDRAWAL_ENABLED")}
+          >
+            <ButtonLoading loading={withdrawing} loadingText="Processing Request...">
+              {isEnabled("WITHDRAWAL_ENABLED") ? "Submit Withdrawal Request" : "Withdrawals Disabled"}
             </ButtonLoading>
           </button>
-          <p style={{ fontSize: 11, color: "var(--fs-text-3)", marginTop: 10, textAlign: "center" }}>
-            Withdrawals are processed manually within 24 hours.
+          <p className="text-[10px] text-white/40 mt-3 text-center">
+            * Withdrawal requests are verified and credited within 24 hours.
           </p>
         </form>
       )}
 
       {msg && (
-        <div style={{ padding: "12px 14px", borderRadius: 10, background: "var(--fs-surface-2)", border: "0.5px solid var(--fs-border)" }}>
-          <p style={{ fontSize: 13, color: "var(--fs-text-2)" }}>{msg}</p>
+        <div className="rounded-xl border border-white/5 bg-[#16162a] p-3 text-center">
+          <p className="text-xs text-white/80 font-semibold">{msg}</p>
         </div>
       )}
 
       {/* Transaction History - Collapsible */}
       <button
         onClick={() => setShowHistory(!showHistory)}
-        style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          width: "100%", padding: "14px 16px", borderRadius: 12,
-          background: "var(--fs-surface-1)", border: "0.5px solid var(--fs-border)",
-          cursor: "pointer", color: "var(--fs-text-1)", fontSize: 14, fontWeight: 600,
-        }}
+        className="flex items-center justify-between w-full px-4 py-3.5 rounded-xl border border-white/5 bg-[#13132a] text-xs font-bold text-white hover:bg-white/[0.01] transition-colors"
       >
-        Transaction History
-        {showHistory ? <ChevronUp size={16} style={{ color: "var(--fs-text-3)" }} /> : <ChevronDown size={16} style={{ color: "var(--fs-text-3)" }} />}
+        <span className="flex items-center gap-1.5">
+          <Landmark size={14} className="text-white/60" />
+          Transaction History
+        </span>
+        {showHistory ? <ChevronUp size={16} className="text-white/40" /> : <ChevronDown size={16} className="text-white/40" />}
       </button>
 
       {showHistory && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <div style={{ background: "var(--fs-surface-1)", borderRadius: 14, border: "0.5px solid var(--fs-border)", padding: 16 }}>
-            <p style={{ fontSize: 13, fontWeight: 700, color: "var(--fs-text-1)", marginBottom: 12 }}>Deposits</p>
+        <div className="space-y-3.5">
+          <div className="rounded-2xl border border-white/5 bg-gradient-to-b from-[#13132a] to-[#0f0f1f] p-4">
+            <p className="text-xs font-bold text-white mb-3 flex items-center gap-1">
+              <ArrowDownLeft size={14} className="text-emerald-400" />
+              Recent Deposits
+            </p>
             {payments.length === 0 ? (
-              <EmptyState title="No payments yet" />
+              <EmptyState title="No deposits yet" />
             ) : (
-              <div>
+              <div className="divide-y divide-white/[0.04]">
                 {payments.slice(0, 8).map((p: any) => (
-                  <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "0.5px solid var(--fs-border)" }}>
-                    <div>
-                      <p style={{ fontSize: 13, color: "var(--fs-text-1)" }}>{p.tournament?.title ?? "Wallet deposit"}</p>
-                      <p style={{ fontSize: 11, color: "var(--fs-text-3)" }}>{fmtDate(p.createdAt)}</p>
+                  <div key={p.id} className="flex justify-between items-center py-2.5">
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-semibold text-white">{p.tournament?.title ?? "Wallet deposit"}</p>
+                      <p className="text-[10px] text-white/40">{fmtDate(p.createdAt)}</p>
                     </div>
-                    <div style={{ textAlign: "right", display: "flex", alignItems: "center", gap: 8 }}>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: "var(--fs-text-1)" }}>{npr(p.amountNpr)}</span>
+                    <div className="text-right flex items-center gap-2 shrink-0">
+                      <span className="text-xs font-bold text-white">{npr(p.amountNpr)}</span>
                       <StatusBadge status={p.status} />
                     </div>
                   </div>
@@ -396,22 +425,25 @@ export default function WalletPage() {
             )}
           </div>
 
-          <div style={{ background: "var(--fs-surface-1)", borderRadius: 14, border: "0.5px solid var(--fs-border)", padding: 16 }}>
-            <p style={{ fontSize: 13, fontWeight: 700, color: "var(--fs-text-1)", marginBottom: 12 }}>Recent Transactions</p>
+          <div className="rounded-2xl border border-white/5 bg-gradient-to-b from-[#13132a] to-[#0f0f1f] p-4">
+            <p className="text-xs font-bold text-white mb-3 flex items-center gap-1">
+              <ArrowUpRight size={14} className="text-[#E53935]" />
+              Account Ledger
+            </p>
             {data.wallet.transactions.length === 0 ? (
-              <EmptyState title="No transactions yet" />
+              <EmptyState title="No ledger records" />
             ) : (
-              <div>
+              <div className="divide-y divide-white/[0.04]">
                 {data.wallet.transactions.map((t: any) => (
-                  <div key={t.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "0.5px solid var(--fs-border)" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span style={{ width: 8, height: 8, borderRadius: "50%", background: t.type === "CREDIT" ? "var(--fs-green)" : "var(--fs-red)" }} />
-                      <div>
-                        <p style={{ fontSize: 13, color: "var(--fs-text-1)" }}>{t.reason}</p>
-                        <p style={{ fontSize: 11, color: "var(--fs-text-3)" }}>{fmtDate(t.createdAt)}</p>
+                  <div key={t.id} className="flex justify-between items-center py-2.5">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${t.type === "CREDIT" ? "bg-emerald-400" : "bg-[#E53935]"}`} />
+                      <div className="min-w-0">
+                        <p className="truncate text-xs font-semibold text-white">{t.reason}</p>
+                        <p className="text-[10px] text-white/40">{fmtDate(t.createdAt)}</p>
                       </div>
                     </div>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: t.type === "CREDIT" ? "var(--fs-green)" : "var(--fs-red)" }}>
+                    <span className={`text-xs font-bold shrink-0 ${t.type === "CREDIT" ? "text-emerald-400" : "text-[#E53935]"}`}>
                       {t.type === "CREDIT" ? "+" : "-"}{npr(t.amountNpr)}
                     </span>
                   </div>

@@ -37,7 +37,7 @@ export function MobileBottomNav() {
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-50 grid grid-cols-5"
+      className="fixed bottom-0 left-0 right-0 z-50 grid grid-cols-5 md:hidden"
       style={{
         background: 'rgba(11,11,20,0.97)',
         backdropFilter: 'blur(12px)',

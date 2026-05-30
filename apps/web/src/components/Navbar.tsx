@@ -58,6 +58,42 @@ export function Navbar() {
           </div>
         </Link>
 
+        {/* Desktop Centered Links */}
+        <div className="hidden md:flex items-center gap-6">
+          <Link
+            href="/"
+            className={`text-sm font-semibold transition-colors duration-200 ${
+              pathname === "/" ? "text-[#E53935]" : "text-white/65 hover:text-white"
+            }`}
+          >
+            Home
+          </Link>
+          <Link
+            href="/tournaments"
+            className={`text-sm font-semibold transition-colors duration-200 ${
+              pathname.startsWith("/tournaments") ? "text-[#E53935]" : "text-white/65 hover:text-white"
+            }`}
+          >
+            Tournaments
+          </Link>
+          <Link
+            href="/challenges"
+            className={`text-sm font-semibold transition-colors duration-200 ${
+              pathname.startsWith("/challenges") ? "text-[#E53935]" : "text-white/65 hover:text-white"
+            }`}
+          >
+            Challenges
+          </Link>
+          <Link
+            href="/leaderboard"
+            className={`text-sm font-semibold transition-colors duration-200 ${
+              pathname.startsWith("/leaderboard") ? "text-[#E53935]" : "text-white/65 hover:text-white"
+            }`}
+          >
+            Leaderboard
+          </Link>
+        </div>
+
         <div className="flex items-center gap-2">
           <div className="hidden sm:block">
             <ViewportToggle compact />

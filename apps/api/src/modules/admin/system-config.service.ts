@@ -2,6 +2,7 @@ import { BadRequestException, Inject, Injectable, Logger, OnModuleInit } from "@
 import { ConfigCategory, ConfigType, PrismaClient, SystemConfig } from "@fireslot/db";
 import { PRISMA } from "../../prisma/prisma.module";
 import { AdminActionLogService } from "./admin-action-log.service";
+import { MemoryCacheService } from "../../common/cache/memory-cache.service";
 
 @Injectable()
 export class SystemConfigService implements OnModuleInit {
@@ -12,6 +13,7 @@ export class SystemConfigService implements OnModuleInit {
   constructor(
     @Inject(PRISMA) private prisma: PrismaClient,
     private logs: AdminActionLogService,
+    private responseCache: MemoryCacheService,
   ) {}
 
   onModuleInit() {
@@ -212,6 +214,7 @@ export class SystemConfigService implements OnModuleInit {
         });
     this.cache.set(key, updated);
     await this.logs.log(adminId, "config.update", "config", key, { value: existing?.value ?? fallback?.value }, { value }, ip);
+    this.responseCache.delPrefix("app-config:public:");
     return updated;
   }
 
@@ -244,6 +247,7 @@ export class SystemConfigService implements OnModuleInit {
     });
     for (const r of results) this.cache.set(r.key, r);
     await this.logs.log(adminId, "config.bulk_update", "config", null, null, { updates }, ip);
+    this.responseCache.delPrefix("app-config:public:");
     return results;
   }
 

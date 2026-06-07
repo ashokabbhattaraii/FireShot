@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { SplashScreen } from './SplashScreen'
 import { useLocalNotifications } from '@/hooks/useLocalNotifications'
-import { API_BASE } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
 import { useUserRealtime } from '@/hooks/useUserRealtime'
 import { useToast } from '@/lib/toast'
@@ -13,10 +12,9 @@ import { sendLocalNotification } from '@/hooks/useLocalNotifications'
 
 export function RootClient({ children }: { children: React.ReactNode }) {
   const [splashVisible, setSplashVisible] = useState(true)
-  const [authChecked, setAuthChecked] = useState(false)
   const router = useRouter()
   const pathname = usePathname()
-  const { user } = useAuth()
+  const { loading: authLoading } = useAuth()
   const toast = useToast()
   const haptics = useHaptics()
 
@@ -31,24 +29,6 @@ export function RootClient({ children }: { children: React.ReactNode }) {
       await sendLocalNotification(title, body, payload?.data?.route).catch(() => {})
     },
   })
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const token = typeof window !== 'undefined' ? localStorage.getItem('fs_token') : null
-        if (!token) {
-          setAuthChecked(true)
-          return
-        }
-        const res = await fetch(`${API_BASE}/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
-        if (!res.ok) {
-          localStorage.removeItem('fs_token')
-        }
-      } catch {}
-      setAuthChecked(true)
-    }
-    checkAuth()
-  }, [])
 
   const handleSplashComplete = () => {
     setSplashVisible(false)
@@ -68,7 +48,7 @@ export function RootClient({ children }: { children: React.ReactNode }) {
     return () => clearTimeout(t)
   }, [])
 
-  const readyToHide = authChecked && minTimeElapsed
+  const readyToHide = !authLoading && minTimeElapsed
 
   useEffect(() => {
     if (readyToHide && splashVisible) {

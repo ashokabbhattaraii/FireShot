@@ -292,20 +292,21 @@ model LeaderboardEntry {
 }
 
 model GameCategory {
-  id          String         @id @default(cuid())
-  name        String
-  slug        String         @unique
-  description String?
-  coverUrl    String?
-  gameMode    String?
-  sortOrder   Int            @default(0)
-  isActive    Boolean        @default(true)
-  comingSoon  Boolean        @default(false)
-  parentId    String?
-  parent      GameCategory?  @relation("CategoryChildren", fields: [parentId], references: [id], onDelete: SetNull)
-  children    GameCategory[] @relation("CategoryChildren")
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  id           String         @id @default(cuid())
+  name         String
+  slug         String         @unique
+  description  String?
+  coverUrl     String?
+  thumbnailUrl String?
+  gameMode     String?
+  sortOrder    Int            @default(0)
+  isActive     Boolean        @default(true)
+  comingSoon   Boolean        @default(false)
+  parentId     String?
+  parent       GameCategory?  @relation("CategoryChildren", fields: [parentId], references: [id], onDelete: SetNull)
+  children     GameCategory[] @relation("CategoryChildren")
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
 }
 
 model HeroBanner {

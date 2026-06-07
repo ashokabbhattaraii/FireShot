@@ -21,6 +21,12 @@ export class CategoriesService {
     );
   }
 
+  async updateCategory(id: string, data: { thumbnailUrl?: string; coverUrl?: string }) {
+    const updated = await this.prisma.gameCategory.update({ where: { id }, data });
+    this.cache.del(ACTIVE_CATEGORIES_CACHE_KEY);
+    return updated;
+  }
+
   private async loadActiveCategories() {
     const top = await this.prisma.gameCategory.findMany({
       where: { parentId: null },
@@ -40,6 +46,7 @@ export class CategoriesService {
       name: t.name,
       slug: t.slug,
       coverUrl: t.coverUrl,
+      thumbnailUrl: t.thumbnailUrl,
       isActive: t.isActive,
       comingSoon: t.comingSoon,
       sortOrder: t.sortOrder,
@@ -53,6 +60,7 @@ export class CategoriesService {
               gameMode: c.gameMode,
               description: c.description,
               coverUrl: c.coverUrl,
+              thumbnailUrl: c.thumbnailUrl,
               sortOrder: c.sortOrder,
             }))
         : [],

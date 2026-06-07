@@ -59,18 +59,22 @@ export async function checkForUpdates(
   apiUrl: string = process.env.NEXT_PUBLIC_API_URL || "https://fire-shot-api.vercel.app/api",
 ): Promise<UpdateCheckResult> {
   const currentVersion = await getCurrentAppVersion();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8_000);
 
   try {
     const response = await fetch(`${apiUrl}/app/config`, {
       method: "GET",
       headers: { "Content-Type": "application/json" },
+      signal: controller.signal,
     });
 
     if (!response.ok) {
       throw new Error(`Failed to fetch app config: ${response.statusText}`);
     }
 
-    const data = await response.json();
+    const payload = await response.json();
+    const data = payload?.data ?? payload;
     const latestVersion = data.update?.latestVersion || currentVersion;
     const downloadUrl = normalizeDownloadUrl(data.update?.downloadUrl || null, apiUrl);
     const forceUpdate = data.update?.force || false;
@@ -96,6 +100,8 @@ export async function checkForUpdates(
       forceUpdate: false,
       releaseNotes: null,
     };
+  } finally {
+    clearTimeout(timeout);
   }
 }
 

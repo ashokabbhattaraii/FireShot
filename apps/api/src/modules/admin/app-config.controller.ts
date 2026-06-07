@@ -1,4 +1,4 @@
-import { Controller, Get, Inject, Param, Put, Post, Body, UseGuards, Req, UploadedFile, UseInterceptors, Logger } from '@nestjs/common';
+import { Controller, Get, Header, Inject, Param, Put, Post, Body, UseGuards, Req, UploadedFile, UseInterceptors, Logger } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AppConfigService } from './app-config.service';
 import { PRISMA } from '../../prisma/prisma.module';
@@ -7,6 +7,31 @@ import { JwtAuthGuard } from '../../common/guards/jwt.guard';
 import { RolesGuard, Roles } from '../../common/guards/roles.guard';
 import { Role } from '@fireslot/db';
 import { StorageService } from '../../common/storage/storage.service';
+import { MemoryCacheService } from '../../common/cache/memory-cache.service';
+
+interface PublicConfigSnapshot {
+  appConfig: Record<string, string>;
+  system: Record<string, string>;
+  latest: {
+    version: string | null;
+    filename: string | null;
+  } | null;
+}
+
+const PUBLIC_CONFIG_CACHE_KEY = "app-config:public:v1";
+const PUBLIC_SYSTEM_KEYS = [
+  "APP_MAINTENANCE_ENABLED",
+  "MAINTENANCE_MODE",
+  "APP_MAINTENANCE_MESSAGE",
+  "APP_FORCE_UPDATE_ENABLED",
+  "APP_MIN_ANDROID_VERSION",
+  "APP_LATEST_VERSION",
+  "APP_DOWNLOAD_ENABLED",
+  "APP_SUPPORT_URL",
+  "APP_ANNOUNCEMENT_ACTIVE",
+  "APP_ANNOUNCEMENT_TEXT",
+  "APP_ANNOUNCEMENT_COLOR",
+];
 
 @Controller()
 export class AppConfigController {
@@ -16,35 +41,19 @@ export class AppConfigController {
     private svc: AppConfigService,
     @Inject(PRISMA) private prisma: PrismaClient,
     private storage: StorageService,
+    private cache: MemoryCacheService,
   ) {}
 
   @Get('app/config')
+  @Header("Cache-Control", "public, max-age=10, stale-while-revalidate=60")
   async publicConfig(@Req() req: any) {
-    const appConfig = await this.svc.getPublic();
-    const systemRows = await this.prisma.systemConfig.findMany({
-      where: {
-        key: {
-          in: [
-            "APP_MAINTENANCE_ENABLED",
-            "MAINTENANCE_MODE",
-            "APP_MAINTENANCE_MESSAGE",
-            "APP_FORCE_UPDATE_ENABLED",
-            "APP_MIN_ANDROID_VERSION",
-            "APP_LATEST_VERSION",
-            "APP_DOWNLOAD_ENABLED",
-            "APP_SUPPORT_URL",
-            "APP_ANNOUNCEMENT_ACTIVE",
-            "APP_ANNOUNCEMENT_TEXT",
-            "APP_ANNOUNCEMENT_COLOR",
-          ],
-        },
-      },
-    });
-    const system = Object.fromEntries(systemRows.map((row) => [row.key, row.value]));
-    const latest = await this.prisma.appRelease.findFirst({
-      where: { isLatest: true },
-      orderBy: { createdAt: "desc" },
-    });
+    const snapshot = await this.cache.getStaleWhileRevalidate<PublicConfigSnapshot>(
+      PUBLIC_CONFIG_CACHE_KEY,
+      10,
+      120,
+      () => this.loadPublicConfigSnapshot(),
+    );
+    const { appConfig, system, latest } = snapshot;
     const latestVersion = latest?.version ?? system.APP_LATEST_VERSION ?? "1.0.0";
     const downloadUrl = latest?.filename ? this.publicDownloadUrl(latest.filename, req) : null;
 
@@ -79,6 +88,30 @@ export class AppConfigController {
         support: system.APP_SUPPORT_URL ?? "/support",
       },
       native: { loadMode: process.env.NATIVE_LOAD_MODE === "bundled" ? "bundled" : "remote" },
+    };
+  }
+
+  private async loadPublicConfigSnapshot(): Promise<PublicConfigSnapshot> {
+    const [appConfig, systemRows, latest] = await Promise.all([
+      this.svc.getPublic(),
+      this.prisma.systemConfig.findMany({
+        where: {
+          key: {
+            in: PUBLIC_SYSTEM_KEYS,
+          },
+        },
+      }),
+      this.prisma.appRelease.findFirst({
+        where: { isLatest: true },
+        orderBy: { createdAt: "desc" },
+        select: { version: true, filename: true },
+      }),
+    ]);
+
+    return {
+      appConfig,
+      system: Object.fromEntries(systemRows.map((row) => [row.key, row.value])),
+      latest,
     };
   }
 

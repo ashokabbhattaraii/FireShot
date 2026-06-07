@@ -1,12 +1,8 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
 import { Home, ListChecks, Trophy, Swords, UserCircle } from "lucide-react";
 import { useIsNativeApp } from "@/hooks/useIsNativeApp";
-import { useAuth } from "@/lib/auth-context";
-import { api } from "@/lib/api";
-import { useUserRealtime } from "@/hooks/useUserRealtime";
 import { useViewport } from "@/lib/viewport-context";
 
 const TABS = [
@@ -21,19 +17,6 @@ export function MobileBottomNav() {
   const { mode } = useViewport();
   const isNative = useIsNativeApp();
   const pathname = usePathname();
-  const { user } = useAuth();
-  const [unread, setUnread] = useState(0);
-
-  useEffect(() => {
-    if (!user) return;
-    api<any[]>("/notifications")
-      .then((items) => setUnread(items.filter((n: any) => !n.read).length))
-      .catch(() => {});
-  }, [user, pathname]);
-
-  useUserRealtime({
-    onNotification: () => setUnread((n) => n + 1),
-  });
 
   if (pathname.startsWith('/admin')) return null;
 

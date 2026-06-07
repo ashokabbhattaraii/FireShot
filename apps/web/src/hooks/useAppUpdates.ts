@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { UpdateCheckResult, checkForUpdates, downloadAndInstallAPK } from "@/lib/update-checker";
 import { useToast } from "@/lib/toast";
+import { useIsNativeApp } from "@/hooks/useIsNativeApp";
 
 interface UseAppUpdatesReturn {
   updateAvailable: boolean;
@@ -28,29 +29,43 @@ export function useAppUpdates(): UseAppUpdatesReturn {
   const [isInstalling, setIsInstalling] = useState(false);
   const { success, error: showError } = useToast();
   const dismissedRef = useRef(false);
+  const checkingRef = useRef<Promise<void> | null>(null);
+  const isNative = useIsNativeApp();
 
   useEffect(() => {
     dismissedRef.current = dismissed;
   }, [dismissed]);
 
   const checkUpdates = useCallback(async () => {
-    try {
-      setIsChecking(true);
-      setError(null);
-      const result = await checkForUpdates();
-      setUpdateResult(result);
-
-      if (result.updateAvailable && !dismissedRef.current) {
-        success(`Update available: ${result.latestVersion}`);
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to check for updates";
-      setError(message);
-      showError(message);
-    } finally {
+    if (!isNative) {
       setIsChecking(false);
+      return;
     }
-  }, [success, showError]);
+    if (checkingRef.current) return checkingRef.current;
+
+    const run = (async () => {
+      try {
+        setIsChecking(true);
+        setError(null);
+        const result = await checkForUpdates();
+        setUpdateResult(result);
+
+        if (result.updateAvailable && !dismissedRef.current) {
+          success(`Update available: ${result.latestVersion}`);
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Failed to check for updates";
+        setError(message);
+        showError(message);
+      } finally {
+        setIsChecking(false);
+        checkingRef.current = null;
+      }
+    })();
+
+    checkingRef.current = run;
+    return run;
+  }, [isNative, success, showError]);
 
   const installUpdate = useCallback(async () => {
     if (!updateResult?.downloadUrl) {
@@ -77,6 +92,11 @@ export function useAppUpdates(): UseAppUpdatesReturn {
 
   // Check for updates on mount and set up periodic checks
   useEffect(() => {
+    if (!isNative) {
+      setIsChecking(false);
+      return;
+    }
+
     // Initial check
     void checkUpdates();
 
@@ -84,7 +104,7 @@ export function useAppUpdates(): UseAppUpdatesReturn {
     const intervalId = setInterval(checkUpdates, 6 * 60 * 60 * 1000);
 
     return () => clearInterval(intervalId);
-  }, [checkUpdates]);
+  }, [checkUpdates, isNative]);
 
   return {
     updateAvailable: updateResult?.updateAvailable && !dismissed ? true : false,

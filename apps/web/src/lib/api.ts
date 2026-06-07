@@ -24,9 +24,11 @@ const API = normalizeApiUrl(
 interface ApiRequestInit extends RequestInit {
   timeoutMs?: number;
   retries?: number;
+  dedupe?: boolean;
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const inflightGets = new Map<string, Promise<unknown>>();
 
 function token(): string | null {
   if (typeof window === "undefined") return null;
@@ -42,7 +44,7 @@ export async function api<T = any>(
   path: string,
   init: ApiRequestInit = {},
 ): Promise<T> {
-  const { timeoutMs = 12_000, retries = 1, ...requestInit } = init;
+  const { timeoutMs = 12_000, retries = 1, dedupe = true, ...requestInit } = init;
   const method = (requestInit.method ?? "GET").toUpperCase();
   const maxAttempts = method === "GET" ? retries + 1 : 1;
   const headers: Record<string, string> = {
@@ -54,6 +56,54 @@ export async function api<T = any>(
   const t = token();
   if (t) headers["Authorization"] = `Bearer ${t}`;
 
+  const canDedupe =
+    dedupe &&
+    method === "GET" &&
+    requestInit.body === undefined &&
+    !(
+      typeof AbortSignal !== "undefined" &&
+      requestInit.signal instanceof AbortSignal
+    );
+  const dedupeKey = canDedupe
+    ? JSON.stringify({ api: API, path, authorization: headers.Authorization ?? "" })
+    : null;
+  if (dedupeKey) {
+    const existing = inflightGets.get(dedupeKey) as Promise<T> | undefined;
+    if (existing) return existing;
+  }
+
+  const request = requestWithRetries<T>({
+    path,
+    requestInit,
+    headers,
+    method,
+    maxAttempts,
+    timeoutMs,
+  });
+
+  if (!dedupeKey) return request;
+
+  inflightGets.set(dedupeKey, request);
+  return request.finally(() => {
+    inflightGets.delete(dedupeKey);
+  });
+}
+
+async function requestWithRetries<T>({
+  path,
+  requestInit,
+  headers,
+  method,
+  maxAttempts,
+  timeoutMs,
+}: {
+  path: string;
+  requestInit: RequestInit;
+  headers: Record<string, string>;
+  method: string;
+  maxAttempts: number;
+  timeoutMs: number;
+}): Promise<T> {
   let lastError: Error | null = null;
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const controller = new AbortController();

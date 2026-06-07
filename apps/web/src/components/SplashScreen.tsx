@@ -1,16 +1,14 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Image from 'next/image'
-import { API_BASE } from '@/lib/api'
+import { api } from '@/lib/api'
 
 export function SplashScreen({ onComplete }: { onComplete: () => void }) {
   const [banner, setBanner] = useState<any>(null)
   const [phase, setPhase] = useState<'enter' | 'hold' | 'exit'>('enter')
 
   useEffect(() => {
-    fetch(`${API_BASE}/banners/splash`)
-      .then((r) => r.json())
+    api('/banners/splash')
       .then((b) => setBanner(b))
       .catch(() => {})
 

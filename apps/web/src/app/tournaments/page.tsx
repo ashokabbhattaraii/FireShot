@@ -8,6 +8,7 @@ import { Trophy, Users, Coins, ChevronDown, MapPin, Bomb } from "lucide-react";
 import { fmtDate, npr } from "@/lib/utils";
 import { calculatePrize, formatSlots, isWinnerTakesAllOnly, PRIZE_SPLITS, TournamentTypeLabels, type TournamentType } from "@fireslot/shared";
 import { CardSkeleton, LoadingState, StatusBadge } from "@/components/ui";
+import { useCategories } from "@/lib/categories-context";
 
 type Tab = "ONGOING" | "UPCOMING" | "RESULTS";
 
@@ -113,6 +114,7 @@ function TournamentRow({
   t, expanded, toggle,
 }: { t: any; expanded: boolean; toggle: () => void }) {
   const router = useRouter();
+  const { thumbnailMap } = useCategories();
   const ps = useMemo(() => t.prizeStructure ?? {}, [t.prizeStructure]);
   const type = (t.type ?? "SOLO_1ST") as TournamentType;
   const isWTA = type === "SOLO_1ST" || isWinnerTakesAllOnly(t.mode ?? "");
@@ -156,14 +158,26 @@ function TournamentRow({
       }}
       className="cursor-pointer rounded-2xl border border-border bg-gradient-to-br from-[#1a1233] via-[#0f0a26] to-[#1a1233] overflow-hidden transition hover:border-neon/50"
     >
-      {t.coverUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={t.coverUrl} alt="" className="h-32 w-full object-cover" />
-      ) : (
-        <div className="h-24 w-full bg-gradient-to-r from-neon/30 via-neon-purple/20 to-neon-cyan/30 flex items-center justify-center">
-          <Trophy className="text-white/40" size={36} />
-        </div>
-      )}
+      {(() => {
+        const FALLBACK_COVERS: Record<string, string> = {
+          BR: "/game-types/battle-royale.png",
+          CS: "/game-types/clash-squad.png",
+          LW: "/game-types/lone-wolf.png",
+          CRAFTLAND: "/game-types/craftland.png",
+        };
+        const mode = (t.mode ?? "") as string;
+        const prefix = mode.split("_")[0];
+        const cover = t.coverUrl || thumbnailMap[mode] || thumbnailMap[prefix] || FALLBACK_COVERS[prefix] || FALLBACK_COVERS[mode];
+        if (cover) return (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={cover} alt="" className="h-32 w-full object-cover" />
+        );
+        return (
+          <div className="h-24 w-full bg-gradient-to-r from-neon/30 via-neon-purple/20 to-neon-cyan/30 flex items-center justify-center">
+            <Trophy className="text-white/40" size={36} />
+          </div>
+        );
+      })()}
 
       <div className="p-3">
         <div className="flex flex-wrap gap-1 mb-2">

@@ -1,5 +1,5 @@
 "use client";
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import { CheckCircle2, AlertTriangle, XCircle, Info, X } from "lucide-react";
 
 type Variant = "success" | "error" | "warning" | "info";
@@ -16,9 +16,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     setItems((x) => [...x, { id, variant, message }]);
     setTimeout(() => setItems((x) => x.filter((t) => t.id !== id)), 4500);
   }, []);
+  const value = useMemo(() => ({ push }), [push]);
 
   return (
-    <Ctx.Provider value={{ push }}>
+    <Ctx.Provider value={value}>
       {children}
       <div className="fixed top-4 left-1/2 z-[100] -translate-x-1/2 space-y-2 px-4 w-full max-w-sm pointer-events-none">
         {items.map((t) => (
@@ -54,12 +55,15 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
 export function useToast() {
   const { push } = useContext(Ctx);
-  return {
-    success: (m: string) => push("success", m),
-    error: (m: string) => push("error", m),
-    warning: (m: string) => push("warning", m),
-    info: (m: string) => push("info", m),
-  };
+  return useMemo(
+    () => ({
+      success: (m: string) => push("success", m),
+      error: (m: string) => push("error", m),
+      warning: (m: string) => push("warning", m),
+      info: (m: string) => push("info", m),
+    }),
+    [push],
+  );
 }
 
 // Maps API error messages to user-friendly toast actions.

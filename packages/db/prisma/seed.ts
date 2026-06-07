@@ -237,6 +237,7 @@ async function seedGameCategories() {
       description:
         "Squad of 4, last team standing. Main esports format used in FFWS and all major tournaments.",
       coverUrl: "/banners/ff-banner-1.svg",
+      thumbnailUrl: "/game-types/battle-royale.png",
     },
     {
       name: "Clash Squad",
@@ -247,6 +248,7 @@ async function seedGameCategories() {
       description:
         "4v4 tactical rounds. Used in FF Pro League and ranked competitive play.",
       coverUrl: "/banners/ff-cs-banner.svg",
+      thumbnailUrl: "/game-types/clash-squad.png",
     },
     {
       name: "Lone Wolf",
@@ -257,6 +259,7 @@ async function seedGameCategories() {
       description:
         "1v1 head-to-head. Popular in small community tournaments and challenge matches.",
       coverUrl: "/banners/ff-banner-2.svg",
+      thumbnailUrl: "/game-types/lone-wolf.png",
     },
     {
       name: "BR Ranked",
@@ -267,6 +270,7 @@ async function seedGameCategories() {
       description:
         "Battle Royale with ranked point scoring. Used for skill-based leaderboard tournaments.",
       coverUrl: "/banners/ff-banner-1.svg",
+      thumbnailUrl: "/game-types/battle-royale.png",
     },
   ];
   for (const sub of ffSubs) {

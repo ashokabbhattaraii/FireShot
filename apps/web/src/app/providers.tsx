@@ -6,6 +6,7 @@ import { ViewportProvider } from "@/lib/viewport-context";
 import { ToastProvider } from "@/lib/toast";
 import { SWRProvider } from "@/lib/swr-config";
 import { UpdateProvider } from "@/lib/update-context";
+import { CategoriesProvider } from "@/lib/categories-context";
 import { AppConfigGate } from "@/components/AppConfigGate";
 
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -15,13 +16,15 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <GoogleOAuthProvider clientId={googleClientId}>
       <SWRProvider>
         <AuthProvider>
-          <ViewportProvider>
-            <ToastProvider>
-              <UpdateProvider>
-                <AppConfigGate>{children}</AppConfigGate>
-              </UpdateProvider>
-            </ToastProvider>
-          </ViewportProvider>
+          <CategoriesProvider>
+            <ViewportProvider>
+              <ToastProvider>
+                <UpdateProvider>
+                  <AppConfigGate>{children}</AppConfigGate>
+                </UpdateProvider>
+              </ToastProvider>
+            </ViewportProvider>
+          </CategoriesProvider>
         </AuthProvider>
       </SWRProvider>
     </GoogleOAuthProvider>

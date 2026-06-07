@@ -2,12 +2,17 @@ import { Inject, Injectable, Logger } from "@nestjs/common";
 import { PrismaClient } from "@fireslot/db";
 import { PRISMA } from "../../prisma/prisma.module";
 import { AdminActionLogService } from "./admin-action-log.service";
+import { MemoryCacheService } from "../../common/cache/memory-cache.service";
 
 @Injectable()
 export class AppConfigService {
   private readonly logger = new Logger(AppConfigService.name);
 
-  constructor(@Inject(PRISMA) private prisma: PrismaClient, private logs: AdminActionLogService) {}
+  constructor(
+    @Inject(PRISMA) private prisma: PrismaClient,
+    private logs: AdminActionLogService,
+    private cache: MemoryCacheService,
+  ) {}
 
   async getAll() {
     try {
@@ -35,6 +40,7 @@ export class AppConfigService {
       ? await (this.prisma as any).appConfig.update({ where: { key }, data: { value, updatedBy: adminId } })
       : await (this.prisma as any).appConfig.create({ data: { key, value, updatedBy: adminId } });
     await this.logs.log(adminId, 'appconfig.update', 'appconfig', key, existing ?? null, updated, ip);
+    this.cache.delPrefix("app-config:public:");
     return updated;
   }
 }

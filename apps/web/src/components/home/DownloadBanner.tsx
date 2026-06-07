@@ -22,8 +22,11 @@ export function DownloadBanner() {
   useEffect(() => {
     if (isNative) return;
     let cancelled = false;
+    const timer = setTimeout(() => {
+      void loadRelease();
+    }, 5_000);
 
-    (async () => {
+    async function loadRelease() {
       // 1) Try the registered release in the DB.
       try {
         const r = await api<LatestRelease | null>("/app/latest-release");
@@ -48,9 +51,13 @@ export function DownloadBanner() {
       } catch {
         /* keep release null */
       }
-    })().finally(() => !cancelled && setLoaded(true));
+      if (!cancelled) setLoaded(true);
+    }
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [isNative]);
 
   if (isNative) return null;

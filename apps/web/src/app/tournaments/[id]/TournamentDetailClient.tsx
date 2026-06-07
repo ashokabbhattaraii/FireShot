@@ -13,6 +13,7 @@ import {
   Trophy, AlertTriangle, Settings, BookOpen, ShieldCheck, X, ArrowLeft, KeyRound, Clock, Users,
 } from "lucide-react";
 import Link from "next/link";
+import { useCategories } from "@/lib/categories-context";
 import { isWinnerTakesAllOnly, PRIZE_SPLITS, TournamentTypeLabels, type TournamentType } from "@fireslot/shared";
 
 interface MatchRules {
@@ -33,6 +34,7 @@ export default function TournamentDetailClient() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { user } = useAuth();
+  const { thumbnailMap } = useCategories();
   const { isEnabled } = useFlags();
   const toast = useToast();
   const [t, setT] = useState<any>(null);
@@ -179,13 +181,25 @@ export default function TournamentDetailClient() {
     <div className="space-y-4 pb-36 -mx-4">
       {/* Banner */}
       <div className="relative">
-        {t.coverUrl ? (
-          <img src={t.coverUrl} alt="" className="w-full object-cover" style={{ height: '200px' }} />
-        ) : (
-          <div className="w-full flex items-center justify-center" style={{ height: '200px', background: 'linear-gradient(135deg, var(--fs-surface-2), var(--fs-surface-3))' }}>
-            <Trophy size={48} style={{ color: 'var(--fs-text-3)' }} />
-          </div>
-        )}
+        {(() => {
+          const FALLBACK_COVERS: Record<string, string> = {
+            BR: "/game-types/battle-royale.png",
+            CS: "/game-types/clash-squad.png",
+            LW: "/game-types/lone-wolf.png",
+            CRAFTLAND: "/game-types/craftland.png",
+          };
+          const mode = (t.mode ?? "") as string;
+          const prefix = mode.split("_")[0];
+          const cover = t.coverUrl || thumbnailMap[mode] || thumbnailMap[prefix] || FALLBACK_COVERS[prefix] || FALLBACK_COVERS[mode];
+          if (cover) return (
+            <img src={cover} alt="" className="w-full object-cover" style={{ height: '200px' }} />
+          );
+          return (
+            <div className="w-full flex items-center justify-center" style={{ height: '200px', background: 'linear-gradient(135deg, var(--fs-surface-2), var(--fs-surface-3))' }}>
+              <Trophy size={48} style={{ color: 'var(--fs-text-3)' }} />
+            </div>
+          );
+        })()}
         <div className="absolute top-0 left-0 right-0 flex items-center justify-between p-4" style={{ paddingTop: 'calc(var(--fs-safe-top) + 12px)' }}>
           <button
             onClick={() => router.back()}

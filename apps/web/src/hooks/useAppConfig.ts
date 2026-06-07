@@ -38,8 +38,9 @@ function flag(value: unknown, fallback = false) {
 
 export function useAppConfig() {
   const { data } = useSWR<PublicAppConfig>('/app/config', {
-    refreshInterval: 30_000,
-    revalidateOnFocus: true,
+    refreshInterval: 60_000,
+    dedupingInterval: 30_000,
+    revalidateOnFocus: false,
     fetcher: (url: string) => api(url),
   })
 

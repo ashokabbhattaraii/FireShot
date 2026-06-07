@@ -16,8 +16,17 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { Gift } from "lucide-react";
 import { StatusBadge } from "@/components/ui";
+import { useCategories } from "@/lib/categories-context";
+
+const FALLBACK_COVERS: Record<string, string> = {
+  BR: "/game-types/battle-royale.png",
+  CS: "/game-types/clash-squad.png",
+  LW: "/game-types/lone-wolf.png",
+  CRAFTLAND: "/game-types/craftland.png",
+};
 
 export function TournamentCard({ t }: { t: any }) {
+  const { thumbnailMap } = useCategories();
   const full = t.filledSlots >= t.maxSlots;
   const playerFee = t.entryFeeNpr;
   const type = (t.type ?? "SOLO_1ST") as TournamentType;
@@ -110,37 +119,43 @@ export function TournamentCard({ t }: { t: any }) {
       onClick={() => router.push(`/tournaments/${t.id}`)}
       onKeyDown={handleKeyDown}
     >
-      {t.coverUrl ? (
-        <div className="relative">
-          <img
-            src={t.coverUrl}
-            alt=""
-            className="w-full object-cover"
-            style={{ height: '140px' }}
-          />
-          {t.status === "ONGOING" && (
-            <span className="absolute top-3 right-3 fs-badge fs-badge-green flex items-center gap-1">
-              <span className="h-2 w-2 rounded-full bg-[var(--fs-green)] animate-pulse" />
-              LIVE
-            </span>
-          )}
-          {t.status === "COMPLETED" && (
-            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-              <span className="fs-badge fs-badge-gray text-sm">ENDED</span>
-            </div>
-          )}
-        </div>
-      ) : (
-        <div className="relative w-full flex items-center justify-center" style={{ height: '140px', background: 'linear-gradient(135deg, var(--fs-surface-2), var(--fs-surface-3))' }}>
-          <span className="text-4xl opacity-30">🎮</span>
-          {t.status === "ONGOING" && (
-            <span className="absolute top-3 right-3 fs-badge fs-badge-green flex items-center gap-1">
-              <span className="h-2 w-2 rounded-full bg-[var(--fs-green)] animate-pulse" />
-              LIVE
-            </span>
-          )}
-        </div>
-      )}
+      {(() => {
+        const mode = (t.mode ?? "") as string;
+        const prefix = mode.split("_")[0];
+        const cover = t.coverUrl || thumbnailMap[mode] || thumbnailMap[prefix] || FALLBACK_COVERS[prefix] || FALLBACK_COVERS[mode];
+        if (cover) return (
+          <div className="relative">
+            <img
+              src={cover}
+              alt=""
+              className="w-full object-cover"
+              style={{ height: '140px' }}
+            />
+            {t.status === "ONGOING" && (
+              <span className="absolute top-3 right-3 fs-badge fs-badge-green flex items-center gap-1">
+                <span className="h-2 w-2 rounded-full bg-[var(--fs-green)] animate-pulse" />
+                LIVE
+              </span>
+            )}
+            {t.status === "COMPLETED" && (
+              <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                <span className="fs-badge fs-badge-gray text-sm">ENDED</span>
+              </div>
+            )}
+          </div>
+        );
+        return (
+          <div className="relative w-full flex items-center justify-center" style={{ height: '140px', background: 'linear-gradient(135deg, var(--fs-surface-2), var(--fs-surface-3))' }}>
+            <span className="text-4xl opacity-30">🎮</span>
+            {t.status === "ONGOING" && (
+              <span className="absolute top-3 right-3 fs-badge fs-badge-green flex items-center gap-1">
+                <span className="h-2 w-2 rounded-full bg-[var(--fs-green)] animate-pulse" />
+                LIVE
+              </span>
+            )}
+          </div>
+        );
+      })()}
 
       <div className="fs-card-body">
         <div className="flex items-center gap-2 flex-wrap">

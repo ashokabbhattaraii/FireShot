@@ -45,7 +45,6 @@ export default function HomePage() {
   const [tournaments, setTournaments] = useState<any[]>([]);
   const [challenges, setChallenges] = useState<any[]>([]);
   const [matches, setMatches] = useState<any>(null);
-  const [wallet, setWallet] = useState<any>(null);
   const [referral, setReferral] = useState<any>(null);
   const [copiedReferral, setCopiedReferral] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -59,11 +58,6 @@ export default function HomePage() {
       api("/categories").then(setCategories).catch(() => setCategories([])),
       api("/app/stats").then(setStats).catch(() => null),
       user ? api("/me/matches").then(setMatches).catch(() => null) : Promise.resolve(),
-      user
-        ? api("/wallet")
-            .then(setWallet)
-            .catch(() => null)
-        : Promise.resolve(),
       user ? api("/referrals/me").then(setReferral).catch(() => null) : Promise.resolve(),
     ]).finally(() => setLoading(false));
   }, [user]);

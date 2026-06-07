@@ -22,13 +22,13 @@ export default function Leaderboard() {
   return (
     <div>
       <PageHeader
-        eyebrow="Prize standings"
+        eyebrow="Top Players"
         title="Leaderboard"
-        description="Rankings are calculated from verified tournament winnings."
+        description="Top 25 players ranked by most games joined."
         action={<Trophy className="text-neon" />}
       />
       {loading ? (
-        <TableLoading columns={3} rows={8} />
+        <TableLoading columns={4} rows={8} />
       ) : rows.length === 0 ? (
         <EmptyState
           title="No winners yet"
@@ -43,6 +43,7 @@ export default function Leaderboard() {
               <tr>
                 <th>Rank</th>
                 <th>Player</th>
+                <th>Games</th>
                 <th>Total Won</th>
               </tr>
             </thead>
@@ -51,6 +52,7 @@ export default function Leaderboard() {
                 <tr key={r.userId} className="border-t border-border">
                   <td className="py-2 font-semibold">#{i + 1}</td>
                   <td>{r.ign}</td>
+                  <td>{r.gamesPlayed ?? 0}</td>
                   <td className="text-neon">{npr(r.prizeEarned)}</td>
                 </tr>
               ))}
@@ -73,9 +75,10 @@ function VirtualLeaderboard({ rows }: { rows: any[] }) {
 
   return (
     <div className="table-wrap">
-      <div className="grid grid-cols-[80px_1fr_120px] border-b border-border bg-bg/60 px-3 py-2 text-xs font-semibold text-white/60">
+      <div className="grid grid-cols-[60px_1fr_60px_100px] border-b border-border bg-bg/60 px-3 py-2 text-xs font-semibold text-white/60">
         <span>Rank</span>
         <span>Player</span>
+        <span>Games</span>
         <span className="text-right">Total Won</span>
       </div>
       <div
@@ -89,7 +92,7 @@ function VirtualLeaderboard({ rows }: { rows: any[] }) {
             return (
               <div
                 key={r.userId}
-                className="grid grid-cols-[80px_1fr_120px] items-center border-t border-border px-3"
+                className="grid grid-cols-[60px_1fr_60px_100px] items-center border-t border-border px-3"
                 style={{
                   position: "absolute",
                   top: 0,
@@ -101,6 +104,7 @@ function VirtualLeaderboard({ rows }: { rows: any[] }) {
               >
                 <span className="font-semibold">#{vRow.index + 1}</span>
                 <span>{r.ign}</span>
+                <span>{r.gamesPlayed ?? 0}</span>
                 <span className="text-right text-neon">{npr(r.prizeEarned)}</span>
               </div>
             );

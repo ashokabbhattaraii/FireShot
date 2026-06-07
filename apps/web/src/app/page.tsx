@@ -402,10 +402,10 @@ export default function HomePage() {
         <DownloadBanner />
 
         {/* Quick Links */}
-        <section className="fs-grid-2">
+        <section className="grid grid-cols-2 gap-[var(--fs-gap-sm)]">
           <Link
             href="/challenges"
-            className="fs-card fs-card-body"
+            className="fs-card fs-card-body h-full"
           >
             <Trophy size={20} style={{ color: 'var(--fs-red)' }} />
             <p className="mt-2 text-sm font-semibold" style={{ color: 'var(--fs-text-1)' }}>Challenges</p>
@@ -413,7 +413,7 @@ export default function HomePage() {
           </Link>
           <Link
             href="/leaderboard"
-            className="fs-card fs-card-body"
+            className="fs-card fs-card-body h-full"
           >
             <Flame size={20} style={{ color: 'var(--fs-gold)' }} />
             <p className="mt-2 text-sm font-semibold" style={{ color: 'var(--fs-text-1)' }}>Leaderboard</p>

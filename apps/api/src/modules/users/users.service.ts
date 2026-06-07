@@ -41,8 +41,9 @@ export class UsersService {
         const rows = await this.prisma.tournamentParticipant.groupBy({
           by: ['userId'],
           _sum: { prizeEarned: true },
-          orderBy: { _sum: { prizeEarned: 'desc' } },
-          take: 50,
+          _count: { userId: true },
+          orderBy: { _count: { userId: 'desc' } },
+          take: 25,
         });
         const ids = rows.map((r) => r.userId);
         const profiles = ids.length
@@ -62,6 +63,7 @@ export class UsersService {
             userId: r.userId,
             ign: user?.profile?.ign ?? user?.email,
             prizeEarned: r._sum.prizeEarned ?? 0,
+            gamesPlayed: r._count.userId,
           };
         });
       },

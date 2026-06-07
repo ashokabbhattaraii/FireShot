@@ -336,6 +336,13 @@ export class TournamentsService implements OnModuleInit {
   async create(adminId: string, dto: CreateTournamentDto) {
     this.validateFeePlan(dto);
 
+    // Reject tournaments scheduled in the past.
+    const requestedAt = new Date(dto.dateTime);
+    if (Number.isFinite(requestedAt.getTime()) && requestedAt.getTime() < Date.now()) {
+      throw new BadRequestException("Tournament dateTime cannot be in the past");
+    }
+
+
     // Auto-set tournament type for CS/LW modes
     if (isWinnerTakesAllOnly(dto.mode)) {
       dto.type = "SOLO_1ST" as any;

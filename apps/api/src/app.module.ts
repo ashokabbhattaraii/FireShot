@@ -19,6 +19,7 @@ import { AppReleasesModule } from './modules/app-releases/app-releases.module';
 import { BannersModule } from './modules/banners/banners.module';
 import { ReferralsModule } from './modules/referrals/referrals.module';
 import { SuperAdminModule } from './modules/super-admin/super-admin.module';
+import { HomeModule } from './modules/home/home.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { StorageModule } from './common/storage/storage.module';
 import { CacheModule } from './common/cache/cache.module';
@@ -56,6 +57,7 @@ const schedulerImports =
     BannersModule,
     ReferralsModule,
     SuperAdminModule,
+    HomeModule,
   ],
   controllers: [HealthController],
   providers: [

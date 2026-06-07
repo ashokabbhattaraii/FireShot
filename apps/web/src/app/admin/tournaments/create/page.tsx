@@ -216,6 +216,18 @@ export default function CreateTournamentPage() {
               value={form.dateTime}
               onChange={(e) => setForm({ ...form, dateTime: e.target.value })}
               required
+              min={(() => {
+                const now = new Date();
+                // datetime-local expects local time in the form YYYY-MM-DDTHH:mm
+                now.setSeconds(0, 0);
+                const pad = (n: number) => String(n).padStart(2, "0");
+                const yyyy = now.getFullYear();
+                const mm = pad(now.getMonth() + 1);
+                const dd = pad(now.getDate());
+                const hh = pad(now.getHours());
+                const minutes = pad(now.getMinutes());
+                return `${yyyy}-${mm}-${dd}T${hh}:${minutes}`;
+              })()}
             />
           </label>
         </section>

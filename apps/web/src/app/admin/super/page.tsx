@@ -24,11 +24,43 @@ export default function SuperAdminPage() {
   const [restoreError, setRestoreError] = useState<string | null>(null);
 
   const isSuperAdmin = user?.role === "SUPER_ADMIN";
+  const [accessKey, setAccessKey] = useState("");
+  const [accessOk, setAccessOk] = useState(false);
+  const [accessError, setAccessError] = useState<string | null>(null);
+
+  // Require: SUPER_ADMIN role + correct TEST_KEY.
+  // We send the key via header x-super-admin-key for all super-admin API calls.
+  async function verifyAccessKey() {
+    setAccessError(null);
+    try {
+      const key = accessKey.trim();
+      if (!key) {
+        setAccessError("Enter access key");
+        return;
+      }
+      // Quick verification call
+      await api("/super-admin/tables", {
+        headers: { "x-super-admin-key": key },
+      } as any);
+      setAccessOk(true);
+    } catch (e: any) {
+      setAccessOk(false);
+      setAccessError(e?.message ?? "Invalid key");
+    }
+  }
 
   useEffect(() => {
-    if (!isSuperAdmin) return;
-    api("/super-admin/tables").then(setTables).catch(() => {});
+    setAccessOk(false);
+    setAccessError(null);
+    setAccessKey("");
   }, [isSuperAdmin]);
+
+  useEffect(() => {
+    if (!isSuperAdmin || !accessOk) return;
+    api("/super-admin/tables", { headers: { "x-super-admin-key": accessKey.trim() } } as any)
+      .then(setTables)
+      .catch(() => {});
+  }, [isSuperAdmin, accessOk]);
 
   useEffect(() => {
     if (!isSuperAdmin || tab !== "users") return;
@@ -137,6 +169,35 @@ export default function SuperAdminPage() {
 
   if (!isSuperAdmin) {
     return <div className="p-8 text-center text-red-400 text-lg font-bold">⛔ Access Denied — SUPER_ADMIN only</div>;
+  }
+
+  if (!accessOk) {
+    return (
+      <div className="mx-auto max-w-md p-8 space-y-4">
+        <h1 className="text-xl font-bold text-white">Super Admin Key Required</h1>
+        <p className="text-sm text-white/60">
+          Enter access key. Role check is already done.
+        </p>
+        <input
+          type="password"
+          value={accessKey}
+          onChange={(e) => setAccessKey(e.target.value)}
+          placeholder="TEST_KEY"
+          className="w-full input"
+        />
+        {accessError && (
+          <div className="rounded-lg border border-red-400/40 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-100">
+            {accessError}
+          </div>
+        )}
+        <button
+          onClick={verifyAccessKey}
+          className="btn-primary w-full"
+        >
+          Verify
+        </button>
+      </div>
+    );
   }
 
   return (

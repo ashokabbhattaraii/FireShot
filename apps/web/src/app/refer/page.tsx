@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Check, Copy, Gift, ShieldAlert, Sparkles, Users } from "lucide-react";
+import { Check, Copy, Gift, Link2, ShieldAlert, Sparkles, Users } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { GoogleAuthPanel } from "@/components/GoogleAuthPanel";
@@ -13,6 +13,7 @@ export default function ReferPage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -27,6 +28,14 @@ export default function ReferPage() {
     navigator.clipboard.writeText(data.code);
     setCopied(true);
     setTimeout(() => setCopied(false), 1800);
+  }
+
+  function copyLink() {
+    if (!data?.code) return;
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    navigator.clipboard.writeText(`${origin}/register?ref=${data.code}`);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 1800);
   }
 
   if (authLoading) return <LoadingState label="Loading referral program..." />;
@@ -62,12 +71,18 @@ export default function ReferPage() {
               {data.code}
             </p>
             <p className="mt-2 text-sm text-white/60">
-              No referral link. Ask friends to paste this code during first signup.
+              Share your code or referral link. New players get Rs {data.signupRewardNpr} on signup.
             </p>
           </div>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
           <button onClick={copyCode} className="btn-primary shrink-0">
             {copied ? <Check size={16} /> : <Copy size={16} />}
-            {copied ? "Copied" : "Copy"}
+            {copied ? "Copied" : "Copy Code"}
+          </button>
+          <button onClick={copyLink} className="btn-outline shrink-0">
+            {copiedLink ? <Check size={16} /> : <Link2 size={16} />}
+            {copiedLink ? "Copied" : "Copy Link"}
           </button>
         </div>
       </div>
@@ -83,7 +98,7 @@ export default function ReferPage() {
           <Sparkles size={18} className="text-neon" /> How rewards unlock
         </h2>
         <div className="mt-3 space-y-2 text-sm text-white/70">
-          <Step text={`Friend signs up with your code and gets Rs ${data.signupRewardNpr}.`} />
+          <Step text={`Friend signs up with your code or referral link and gets Rs ${data.signupRewardNpr}.`} />
           <Step text={`You get Rs ${data.referrerDepositRewardNpr} after their first wallet deposit is approved.`} />
           <Step text="Rewards go straight to wallet balance and are visible in wallet history." />
         </div>
@@ -145,11 +160,11 @@ function ReferralHero({
           Turn your squad into wallet rewards.
         </h1>
         <p className="mt-2 text-sm text-white/70">
-          New players paste a 6-character code during first signup and get Rs {signupReward}. You earn Rs {depositReward} after their first deposit.
+          Share your referral link or code. New players get Rs {signupReward} on signup, and you earn Rs {depositReward} after their first deposit.
         </p>
         {signedOut && (
           <p className="mt-3 text-xs text-white/55">
-            No link needed. Sign in to reveal your own code.
+            Sign in to get your referral code and link.
           </p>
         )}
       </div>

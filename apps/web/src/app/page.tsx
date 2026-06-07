@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Check, Copy, Flame, Gift, Plus, ShieldAlert, Trophy, Wallet } from "lucide-react";
+import { Check, Copy, Flame, Gift, Link2, Plus, ShieldAlert, Trophy, Wallet } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { fmtDate, npr } from "@/lib/utils";
@@ -49,17 +49,26 @@ export default function HomePage() {
   const [copiedReferral, setCopiedReferral] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [stats, setStats] = useState<{ activeUsers: number; totalDownloads: number } | null>(null);
+  const [banners, setBanners] = useState<any[] | undefined>(undefined);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([
-      api("/tournaments?statuses=LIVE,UPCOMING&limit=8").then(setTournaments),
-      api("/challenges?limit=4").then(setChallenges).catch(() => setChallenges([])),
-      api("/categories").then(setCategories).catch(() => setCategories([])),
-      api("/app/stats").then(setStats).catch(() => null),
-      user ? api("/me/matches").then(setMatches).catch(() => null) : Promise.resolve(),
-      user ? api("/referrals/me").then(setReferral).catch(() => null) : Promise.resolve(),
-    ]).finally(() => setLoading(false));
+    const publicData = api("/home").then((data: any) => {
+      setTournaments(data.tournaments ?? []);
+      setChallenges(data.challenges ?? []);
+      setCategories(data.categories ?? []);
+      setStats(data.stats ?? null);
+      setBanners(data.banners ?? []);
+    }).catch(() => {});
+
+    const authData = user
+      ? Promise.all([
+          api("/me/matches").then(setMatches).catch(() => null),
+          api("/referrals/me").then(setReferral).catch(() => null),
+        ])
+      : Promise.resolve();
+
+    Promise.all([publicData, authData]).finally(() => setLoading(false));
   }, [user]);
 
   function copyReferralCode(code?: string) {
@@ -67,6 +76,15 @@ export default function HomePage() {
     navigator.clipboard.writeText(code);
     setCopiedReferral(true);
     setTimeout(() => setCopiedReferral(false), 1500);
+  }
+
+  const [copiedLink, setCopiedLink] = useState(false);
+  function copyReferralLink(code?: string) {
+    if (!code) return;
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    navigator.clipboard.writeText(`${origin}/register?ref=${code}`);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 1500);
   }
 
   const liveCounts = useMemo(() => {
@@ -146,7 +164,7 @@ export default function HomePage() {
   return (
     <>
       <div className="-mx-4 -mt-4">
-        <HeroSlider />
+        <HeroSlider banners={banners} />
       </div>
 
       <div className="mt-4 space-y-5">
@@ -329,7 +347,7 @@ export default function HomePage() {
                   Friend gets Rs {referral?.signupRewardNpr ?? 10}. You earn Rs {referral?.referrerDepositRewardNpr ?? 10}.
                 </p>
                 <p className="mt-1 text-xs text-[var(--fs-text-2)]">
-                  First-signup only. Paste a 6-character code. No links needed.
+                  First-signup only. Share your code or referral link.
                 </p>
               </div>
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[rgba(255,193,7,0.16)]">
@@ -343,14 +361,24 @@ export default function HomePage() {
                   <p className="font-mono text-lg font-bold tracking-[0.18em] text-[var(--fs-text-1)]">
                     {referral.code}
                   </p>
-                  <button
-                    onClick={() => copyReferralCode(referral.code)}
-                    className="btn-primary text-xs"
-                    type="button"
-                  >
-                    {copiedReferral ? <Check size={14} /> : <Copy size={14} />}
-                    {copiedReferral ? "Copied" : "Copy code"}
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => copyReferralCode(referral.code)}
+                      className="btn-primary text-xs"
+                      type="button"
+                    >
+                      {copiedReferral ? <Check size={14} /> : <Copy size={14} />}
+                      {copiedReferral ? "Copied" : "Code"}
+                    </button>
+                    <button
+                      onClick={() => copyReferralLink(referral.code)}
+                      className="btn-outline text-xs"
+                      type="button"
+                    >
+                      {copiedLink ? <Check size={14} /> : <Link2 size={14} />}
+                      {copiedLink ? "Copied" : "Link"}
+                    </button>
+                  </div>
                 </div>
                 <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-[var(--fs-text-3)]">
                   <span>Invited: {referral.stats?.invited ?? 0}</span>

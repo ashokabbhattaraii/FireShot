@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Gift, ShieldAlert } from "lucide-react";
 import { api } from "@/lib/api";
@@ -22,6 +22,39 @@ export default function ReferralOnboardingPage() {
     const next = params.get("next") || "/dashboard";
     return next.startsWith("/") ? next : "/dashboard";
   }, [params]);
+
+  // Pre-fill from ?ref= query param
+  useEffect(() => {
+    const ref = params.get("ref");
+    if (ref) {
+      const normalized = ref.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
+      if (normalized) setCode(normalized);
+    }
+  }, [params]);
+
+  // Auto-submit if code came from referral link
+  const [autoSubmitted, setAutoSubmitted] = useState(false);
+  useEffect(() => {
+    if (autoSubmitted || !user || submitting || skipping) return;
+    const ref = params.get("ref");
+    if (!ref) return;
+    const normalized = ref.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
+    if (!/^[A-Z0-9]{6}$/.test(normalized)) return;
+    setAutoSubmitted(true);
+    setSubmitting(true);
+    api("/referrals/claim", {
+      method: "PUT",
+      body: JSON.stringify({ code: normalized }),
+    })
+      .then(async () => {
+        await refresh();
+        router.replace(nextPath);
+      })
+      .catch((e: any) => {
+        setMessage(e.message ?? "Could not apply referral code");
+        setSubmitting(false);
+      });
+  }, [user, params, autoSubmitted, submitting, skipping, refresh, router, nextPath]);
 
   async function submitCode(e: React.FormEvent) {
     e.preventDefault();

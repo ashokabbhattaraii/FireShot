@@ -55,17 +55,34 @@ export function GoogleAuthPanel({
   title = "Continue with Google",
   next = "/dashboard",
   showReferral = false,
+  initialReferralCode = "",
 }: {
   title?: string;
   next?: string;
   showReferral?: boolean;
+  initialReferralCode?: string;
 }) {
   const router = useRouter();
   const { refresh } = useAuth();
   const isNative = useIsNativeApp();
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [referralCode, setReferralCode] = useState("");
+
+  // Persist referral code so it survives OAuth redirects
+  const storedRef = typeof window !== "undefined"
+    ? (localStorage.getItem("fs_pending_referral") ?? "")
+    : "";
+  const resolvedInitial = initialReferralCode || storedRef;
+  const [referralCode, setReferralCode] = useState(
+    resolvedInitial.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6),
+  );
+
+  // Save to localStorage whenever referralCode changes (from URL or user input)
+  useEffect(() => {
+    if (referralCode) {
+      localStorage.setItem("fs_pending_referral", referralCode);
+    }
+  }, [referralCode]);
 
   const signIn = useCallback(async (payload: { credential?: string; accessToken?: string }) => {
     if (!payload.credential && !payload.accessToken) {
@@ -89,7 +106,7 @@ export function GoogleAuthPanel({
         method: "POST",
         body: JSON.stringify({
           ...payload,
-          referralCode: showReferral ? normalizedReferral || undefined : undefined,
+          referralCode: normalizedReferral || undefined,
         }),
       });
       const nextToken = res?.token ?? res?.accessToken ?? res?.jwt ?? res?.data?.token;
@@ -97,10 +114,17 @@ export function GoogleAuthPanel({
         throw new Error("Google sign-in succeeded but no auth token was returned");
       }
       auth.setToken(nextToken);
+      localStorage.removeItem("fs_pending_referral");
       await refresh();
 
       if (res?.needsReferralOnboarding) {
-        router.push(`/onboarding/referral?next=${encodeURIComponent(next)}`);
+        // Grab ref from URL in case state wasn't populated yet
+        const urlRef = typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search).get("ref") ?? ""
+          : "";
+        const refToPass = normalizedReferral || urlRef.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
+        const refParam = refToPass ? `&ref=${refToPass}` : "";
+        router.push(`/onboarding/referral?next=${encodeURIComponent(next)}${refParam}`);
         return;
       }
 

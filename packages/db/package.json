@@ -7,6 +7,7 @@
     "build": "pnpm run generate && tsc -p tsconfig.json",
     "generate": "prisma generate",
     "migrate": "prisma migrate dev",
+    "reset": "prisma migrate reset --force",
     "deploy": "prisma migrate deploy",
     "studio": "prisma studio",
     "seed": "ts-node prisma/seed.ts"

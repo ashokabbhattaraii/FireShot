@@ -3,9 +3,10 @@ import { Response } from "express";
 import { JwtAuthGuard } from "../../common/guards/jwt.guard";
 import { Roles, RolesGuard } from "../../common/guards/roles.guard";
 import { SuperAdminService } from "./super-admin.service";
+import { SuperAdminAccessKeyGuard } from "./super-admin.guard";
 
 @Controller("super-admin")
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, SuperAdminAccessKeyGuard)
 @Roles("SUPER_ADMIN")
 export class SuperAdminController {
   constructor(private svc: SuperAdminService) {}

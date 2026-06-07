@@ -136,11 +136,16 @@ const FEATURE_SLIDES: FeatureSlide[] = [
   },
 ];
 
-export function HeroSlider() {
-  const { data: banners, isLoading } = useSWR<HeroBanner[]>("/banners", {
-    dedupingInterval: 60_000,
-    revalidateOnFocus: false,
-  });
+export function HeroSlider({ banners: externalBanners }: { banners?: HeroBanner[] }) {
+  const { data: fetchedBanners, isLoading } = useSWR<HeroBanner[]>(
+    externalBanners ? null : "/banners",
+    {
+      dedupingInterval: 60_000,
+      revalidateOnFocus: false,
+    },
+  );
+
+  const banners = externalBanners ?? fetchedBanners;
 
   const slides = useMemo<Slide[]>(() => {
     const activeBanners = (banners ?? []).map((banner) => ({
@@ -151,7 +156,7 @@ export function HeroSlider() {
     return activeBanners.length ? [...activeBanners, ...FEATURE_SLIDES] : FEATURE_SLIDES;
   }, [banners]);
 
-  if (isLoading) {
+  if (isLoading && !externalBanners) {
     return (
       <div className="hero-slider-shell overflow-hidden bg-card">
         <div className="h-full w-full animate-pulse bg-gradient-to-r from-white/5 via-white/10 to-white/5" />

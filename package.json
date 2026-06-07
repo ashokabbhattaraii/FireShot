@@ -14,6 +14,7 @@
     "apk:release": "pnpm --filter @fireslot/web build:apk:release",
     "db:generate": "pnpm --filter @fireslot/db generate",
     "db:migrate": "pnpm --filter @fireslot/db migrate",
+    "db:reset": "pnpm --filter @fireslot/db reset",
     "db:seed": "pnpm --filter @fireslot/db seed",
     "db:studio": "pnpm --filter @fireslot/db studio"
   },

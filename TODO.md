@@ -1,11 +1,6 @@
 # TODO
 
-- [x] Fix `scripts/crop-game-types.sh` to correctly generate 4 thumbnails from `public/gametype.png` into the right output directory.
-
-- [x] Run the script to confirm thumbnails are created.
-
-- [x] Ensure thumbnails are under `apps/web/public/...` (or update code to match actual location).
-
-- [x] Run `pnpm --filter @fireslot/web lint` and/or `pnpm --filter @fireslot/web build` to validate (build currently fails due to missing _document page, unrelated to thumbnails).
-
-
+- [ ] Block tournament creation `dateTime` from selecting older than now/today (client-side `min` on datetime-local)
+- [ ] Enforce same rule server-side in `TournamentsService.create()` with `BadRequestException`
+- [ ] Run repo lint/typecheck/build (if available)
+- [ ] Manual test: UI past date cannot be selected; API rejects past date

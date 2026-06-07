@@ -37,6 +37,8 @@ export async function createApp(opts: { createStaticDirs?: boolean } = {}): Prom
     exclude: [{ path: 'health', method: RequestMethod.GET }],
   });
 
+  app.use(express.json({ limit: '100mb' }));
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

@@ -52,7 +52,15 @@ async function sendFcmPush(
         token,
         notification: { title: notification.title, body: notification.body ?? undefined },
         data: { type: notification.type ?? "GENERAL" },
-        android: { priority: "high" },
+        android: {
+          priority: "high",
+          notification: {
+            channelId: "fcm_default_channel",
+            priority: "high",
+            defaultSound: true,
+            defaultVibrateTimings: true,
+          },
+        },
       });
     } catch (e: any) {
       fcmLogger.warn(`FCM error (${token.slice(0, 8)}…): ${e.message}`);

@@ -112,7 +112,7 @@ importers:
   apps/web:
     dependencies:
       '@capacitor/android':
-        specifier: ^6.0.0
+        specifier: ^6.2.1
         version: 6.2.1(@capacitor/core@6.2.1)
       '@capacitor/app':
         specifier: ^6.0.0
@@ -121,7 +121,7 @@ importers:
         specifier: ^6.0.0
         version: 6.0.6(@capacitor/core@6.2.1)
       '@capacitor/core':
-        specifier: ^6.0.0
+        specifier: ^6.2.1
         version: 6.2.1
       '@capacitor/haptics':
         specifier: ^6.0.0
@@ -197,7 +197,7 @@ importers:
         version: 3.25.76
     devDependencies:
       '@capacitor/cli':
-        specifier: ^6.0.0
+        specifier: ^6.2.1
         version: 6.2.1
       '@types/node':
         specifier: ^20.14.0

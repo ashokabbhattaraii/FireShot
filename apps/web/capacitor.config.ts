@@ -28,6 +28,7 @@ const config: CapacitorConfig = {
     SplashScreen: { launchShowDuration: 0, backgroundColor: '#0B0B14', showSpinner: false },
     StatusBar: { style: 'DARK', backgroundColor: '#0B0B14', overlaysWebView: false },
     LocalNotifications: { smallIcon: 'ic_stat_notification', iconColor: '#E53935' },
+    PushNotifications: { presentationOptions: ['badge', 'sound', 'alert'] },
   },
   android: { allowMixedContent: false, captureInput: true, webContentsDebuggingEnabled: false },
 }

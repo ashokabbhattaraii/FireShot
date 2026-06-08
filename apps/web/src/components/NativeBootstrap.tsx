@@ -3,14 +3,15 @@ import { useEffect } from "react";
 import { useIsNativeApp } from "@/hooks/useIsNativeApp";
 import { useLocalNotifications } from "@/hooks/useLocalNotifications";
 import { useAndroidBackButton } from "@/hooks/useAndroidBackButton";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 const APP_ORIGIN = "https://fire-shot-web.vercel.app";
 
 export function NativeBootstrap() {
   const isNative = useIsNativeApp();
-  // Hooks must be called unconditionally; the hook itself no-ops on web.
   useLocalNotifications();
   useAndroidBackButton();
+  usePushNotifications();
 
   useEffect(() => {
     if (!isNative) return;

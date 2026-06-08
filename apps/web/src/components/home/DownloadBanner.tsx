@@ -71,39 +71,34 @@ export function DownloadBanner() {
 
   return (
     <section className="rounded-lg border border-neon/40 bg-gradient-to-r from-neon/10 via-surface to-neon-cyan/10 p-4">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-neon/20 text-neon">
-            <Smartphone size={24} />
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-neon/20 text-neon">
+            <Smartphone size={20} />
           </div>
           <div className="min-w-0">
-            <h3 className="font-display text-base text-white">FireSlot Nepal</h3>
-            <p className="text-sm text-white/70">Play on Android</p>
-            <p className="text-xs text-neon-cyan">
-              Free Download
-            </p>
+            <h3 className="text-sm font-bold text-white">FireSlot Nepal</h3>
+            <p className="text-xs text-white/70">Play on Android</p>
           </div>
         </div>
-        <div className="flex flex-col items-end gap-1 shrink-0">
-          <div className="flex items-center gap-2">
-            <a
-              href={downloadHref}
-              download
-              className="btn-primary text-xs flex items-center gap-1"
-            >
-              <Download size={14} /> Download APK
-            </a>
-            <span className="rounded-md border border-border bg-surface px-2 py-0.5 text-[10px] text-white/50">
-              Play Store · Soon
-            </span>
-          </div>
-          <p className="text-[10px] text-white/40">
-            {loaded && release
-              ? `v${release.version} • Android 7.0+ • 15MB`
-              : "Android 7.0+ • APK"}
-          </p>
+        <div className="flex items-center gap-2 flex-wrap">
+          <a
+            href={downloadHref}
+            download
+            className="btn-primary text-xs flex items-center gap-1"
+          >
+            <Download size={14} /> Download APK
+          </a>
+          <span className="rounded-md border border-border bg-surface px-2 py-0.5 text-[10px] text-white/50">
+            Play Store · Soon
+          </span>
         </div>
       </div>
+      <p className="mt-2 text-[10px] text-white/40">
+        {loaded && release
+          ? `v${release.version} • Android 7.0+ • 15MB`
+          : "Android 7.0+ • APK"}
+      </p>
     </section>
   );
 }

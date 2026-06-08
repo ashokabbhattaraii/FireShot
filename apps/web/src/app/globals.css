@@ -68,6 +68,7 @@ body {
 /* ── RESPONSIVE FIXES ── */
 body { overflow-x: hidden }
 img { max-width: 100%; height: auto }
+main { overflow-x: hidden }
 
 .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch }
 table { min-width: max-content }
@@ -85,6 +86,11 @@ table { min-width: max-content }
   .admin-stats-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
+}
+
+@media (max-width: 320px) {
+  .fs-page { padding-left: 10px; padding-right: 10px }
+  .fs-hero-offset { margin: -16px -10px 0 }
 }
 
 input[type="text"],

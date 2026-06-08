@@ -152,12 +152,18 @@ button, a { touch-action:manipulation }
 .fs-pb-safe { padding-bottom:calc(80px + var(--fs-safe-bottom)) }
 .fs-pt-safe { padding-top:var(--fs-safe-top) }
 
+/* ── HERO OFFSET ── */
+.fs-hero-offset { margin: -16px -16px 0 }
+@media (max-width:360px) { .fs-hero-offset { margin: -16px -12px 0 } }
+
 /* ── RESPONSIVE ── */
 @media (max-width:360px) {
   .fs-h1 { font-size:18px }
   .fs-h2 { font-size:15px }
   .fs-body { font-size:13px }
   .fs-btn { height:40px; font-size:13px }
+  .fs-page { padding-left:12px; padding-right:12px }
+  .fs-hscroll { gap:6px }
 }
 @media (min-width:768px) {
   .fs-container { max-width:720px }

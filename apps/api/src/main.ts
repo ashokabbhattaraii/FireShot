@@ -29,7 +29,7 @@ export async function createApp(opts: { createStaticDirs?: boolean } = {}): Prom
       : true,
     credentials: true,
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-super-admin-key'],
     optionsSuccessStatus: 204,
   });
 

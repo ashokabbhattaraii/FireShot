@@ -7,9 +7,9 @@ import { useViewport } from "@/lib/viewport-context";
 
 const TABS = [
   { href: "/", label: "Home", Icon: Home },
-  { href: "/tournaments", label: "Tournaments", Icon: Trophy },
+  { href: "/tournaments", label: "Tourneys", Icon: Trophy },
   { href: "/challenges", label: "Challenges", Icon: Swords },
-  { href: "/my-matches", label: "My Matches", Icon: ListChecks },
+  { href: "/my-matches", label: "Matches", Icon: ListChecks },
   { href: "/dashboard", label: "Profile", Icon: UserCircle },
 ];
 
@@ -39,7 +39,7 @@ export function MobileBottomNav() {
           <Link
             key={t.href}
             href={t.href}
-            className="relative flex flex-col items-center justify-center gap-0.5"
+            className="relative flex flex-col items-center justify-center gap-0.5 overflow-hidden px-1"
             style={{ minHeight: '44px' }}
           >
             {active && (
@@ -50,7 +50,7 @@ export function MobileBottomNav() {
             )}
             <Icon size={20} style={{ color: active ? 'var(--fs-red)' : 'var(--fs-text-3)' }} />
             <span
-              className="text-[10px] font-medium"
+              className="text-[10px] font-medium leading-tight truncate max-w-full"
               style={{ color: active ? 'var(--fs-red)' : 'var(--fs-text-3)' }}
             >
               {t.label}

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Check, Copy, Flame, Gift, Link2, Plus, ShieldAlert, Trophy, Wallet } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
-import { fmtDate, npr } from "@/lib/utils";
+import { fmtDate } from "@/lib/utils";
 import { TournamentCard } from "@/components/TournamentCard";
 import { CardSkeleton, EmptyState, LoadingState } from "@/components/ui";
 import { DownloadBanner } from "@/components/home/DownloadBanner";
@@ -163,7 +163,7 @@ export default function HomePage() {
 
   return (
     <>
-      <div className="-mx-4 -mt-4">
+      <div className="fs-hero-offset">
         <HeroSlider banners={banners} />
       </div>
 
@@ -173,24 +173,24 @@ export default function HomePage() {
           className="grid grid-cols-4 gap-0 rounded-xl overflow-hidden"
           style={{ background: 'var(--fs-surface-1)', border: '0.5px solid var(--fs-border)' }}
         >
-          <div className="flex flex-col items-center py-2.5 px-1 text-center">
+          <div className="flex flex-col items-center py-2.5 px-0.5 text-center min-w-0">
             <span className="h-2 w-2 rounded-full mb-1" style={{ background: 'var(--fs-green)' }} />
-            <span className="text-xs font-semibold" style={{ color: 'var(--fs-text-1)' }}>{activeCount}</span>
+            <span className="text-[11px] font-semibold truncate w-full" style={{ color: 'var(--fs-text-1)' }}>{activeCount}</span>
             <span className="text-[9px]" style={{ color: 'var(--fs-text-3)' }}>Live</span>
           </div>
-          <div className="flex flex-col items-center py-2.5 px-1 text-center" style={{ borderLeft: '0.5px solid var(--fs-border)' }}>
+          <div className="flex flex-col items-center py-2.5 px-0.5 text-center min-w-0" style={{ borderLeft: '0.5px solid var(--fs-border)' }}>
             <span className="mb-1 text-[10px]">👥</span>
-            <span className="text-xs font-semibold" style={{ color: 'var(--fs-text-1)' }}>{stats?.activeUsers ?? 0}</span>
+            <span className="text-[11px] font-semibold truncate w-full" style={{ color: 'var(--fs-text-1)' }}>{stats?.activeUsers ?? 0}</span>
             <span className="text-[9px]" style={{ color: 'var(--fs-text-3)' }}>Users</span>
           </div>
-          <div className="flex flex-col items-center py-2.5 px-1 text-center" style={{ borderLeft: '0.5px solid var(--fs-border)' }}>
+          <div className="flex flex-col items-center py-2.5 px-0.5 text-center min-w-0" style={{ borderLeft: '0.5px solid var(--fs-border)' }}>
             <span className="mb-1 text-[10px]">⬇️</span>
-            <span className="text-xs font-semibold" style={{ color: 'var(--fs-text-1)' }}>{stats?.totalDownloads ?? '—'}</span>
+            <span className="text-[11px] font-semibold truncate w-full" style={{ color: 'var(--fs-text-1)' }}>{stats?.totalDownloads ?? '—'}</span>
             <span className="text-[9px]" style={{ color: 'var(--fs-text-3)' }}>Downloads</span>
           </div>
-          <div className="flex flex-col items-center py-2.5 px-1 text-center" style={{ borderLeft: '0.5px solid var(--fs-border)' }}>
+          <div className="flex flex-col items-center py-2.5 px-0.5 text-center min-w-0" style={{ borderLeft: '0.5px solid var(--fs-border)' }}>
             <span className="mb-1 text-[10px]">🏆</span>
-            <span className="text-xs font-semibold" style={{ color: 'var(--fs-gold)' }}>Rs {totalPrize}</span>
+            <span className="text-[11px] font-semibold truncate w-full" style={{ color: 'var(--fs-gold)' }}>₹{totalPrize}</span>
             <span className="text-[9px]" style={{ color: 'var(--fs-text-3)' }}>Prize</span>
           </div>
         </div>
@@ -215,7 +215,7 @@ export default function HomePage() {
                     <Link
                       key={game.id}
                       href={`/tournaments?category=${game.slug}`}
-                      className="relative flex-shrink-0 rounded-xl px-4 py-3 text-left transition"
+                      className="relative flex-shrink-0 rounded-xl px-3 py-3 text-left transition"
                       style={{
                         backgroundColor: 'var(--fs-surface-1)',
                         backgroundImage: game.coverUrl ? `url("${game.coverUrl}")` : undefined,
@@ -223,7 +223,8 @@ export default function HomePage() {
                         backgroundPosition: 'center',
                         backgroundRepeat: 'no-repeat',
                         border: '0.5px solid var(--fs-border)',
-                        minWidth: '120px',
+                        minWidth: '105px',
+                        maxWidth: '140px',
                         color: game.coverUrl ? 'white' : undefined,
                       }}
                     >
@@ -248,11 +249,12 @@ export default function HomePage() {
                 {comingSoonGames.map((game) => (
                   <div
                     key={game.id}
-                    className="relative flex-shrink-0 rounded-xl px-4 py-3 opacity-60"
+                    className="relative flex-shrink-0 rounded-xl px-3 py-3 opacity-60"
                     style={{
                       background: 'var(--fs-surface-1)',
                       border: '0.5px solid var(--fs-border)',
-                      minWidth: '120px',
+                      minWidth: '105px',
+                      maxWidth: '140px',
                     }}
                   >
                     <span className="absolute right-2 top-2 fs-badge fs-badge-amber" style={{ fontSize: '8px' }}>

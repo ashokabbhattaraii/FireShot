@@ -49,4 +49,8 @@ export class RealtimeService implements OnModuleInit {
   emitToUser(userId: string, event: string, payload: unknown) {
     void this.send(`user:${userId}`, event, payload);
   }
+
+  emitToTicket(ticketId: string, event: string, payload: unknown) {
+    void this.send(`ticket:${ticketId}`, event, payload);
+  }
 }

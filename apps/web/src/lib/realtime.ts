@@ -90,3 +90,17 @@ export function subscribeToUser(
     void supa.removeChannel(channel);
   };
 }
+
+export function subscribeToTicket(
+  ticketId: string,
+  onMessage: (payload: any) => void,
+): RealtimeUnsubscribe {
+  const supa = getRealtimeClient();
+  if (!supa) return () => {};
+  const channel = supa.channel(`ticket:${ticketId}`);
+  channel.on("broadcast", { event: "ticket_message" }, ({ payload }) => onMessage(payload));
+  channel.subscribe();
+  return () => {
+    void supa.removeChannel(channel);
+  };
+}

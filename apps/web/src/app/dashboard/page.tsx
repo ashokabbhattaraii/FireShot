@@ -6,6 +6,7 @@ import {
   Bell,
   ChevronRight,
   CreditCard,
+  Headphones,
   ShieldCheck,
   Trophy,
   UserCircle,
@@ -168,6 +169,12 @@ export default function Dashboard() {
           detail={`${unread} unread`}
           href="/notifications"
           tone={unread ? "text-neon-cyan" : "text-white/55"}
+        />
+        <MenuItem
+          icon={<Headphones size={19} />}
+          title="Support"
+          detail="Get help with your account"
+          href="/support"
         />
       </section>
     </div>

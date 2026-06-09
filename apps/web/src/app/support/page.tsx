@@ -1,8 +1,9 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { useFlags } from "@/lib/flags";
+import { subscribeToTicket } from "@/lib/realtime";
 import { FeatureDisabledPage } from "@/components/FeatureDisabledPage";
 import { Plus, Send, X, Clock, CheckCircle, AlertCircle, MessageCircle, ArrowLeft } from "lucide-react";
 import { ButtonLoading, PageLoading } from "@/components/ui";
@@ -73,6 +74,23 @@ export default function SupportPage() {
     try { setDetail(await api(`/support/tickets/${id}`)); }
     finally { setDetailLoading(false); }
   }
+
+  // Subscribe to realtime messages for the open ticket
+  const unsubRef = useRef<() => void>();
+  useEffect(() => {
+    unsubRef.current?.();
+    unsubRef.current = undefined;
+    if (!openId) return;
+    unsubRef.current = subscribeToTicket(openId, (msg) => {
+      setDetail((prev) => {
+        if (!prev) return prev;
+        const exists = prev.messages.some((m) => m.id === msg.id);
+        if (exists) return prev;
+        return { ...prev, messages: [...prev.messages, { ...msg, isInternal: false }] };
+      });
+    });
+    return () => { unsubRef.current?.(); };
+  }, [openId]);
 
   async function createTicket() {
     if (!draft.subject || !draft.message) return;

@@ -3,7 +3,6 @@ import { useEffect, useState, useRef } from "react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { useFlags } from "@/lib/flags";
-import { subscribeToTicket } from "@/lib/realtime";
 import { FeatureDisabledPage } from "@/components/FeatureDisabledPage";
 import { Plus, Send, X, Clock, CheckCircle, AlertCircle, MessageCircle, ArrowLeft } from "lucide-react";
 import { ButtonLoading, PageLoading } from "@/components/ui";
@@ -53,6 +52,7 @@ export default function SupportPage() {
   const [sendingReply, setSendingReply] = useState(false);
   const [reply, setReply] = useState("");
   const [draft, setDraft] = useState({ category: "GENERAL", subject: "", message: "" });
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   async function load() {
     setTicketsLoading(true);
@@ -63,22 +63,34 @@ export default function SupportPage() {
   }
   useEffect(() => { if (user) load().catch(() => {}); }, [user]);
 
-  // Subscribe to realtime messages for the open ticket
-  const unsubRef = useRef<() => void>();
+  // Subscribe to realtime messages via SSE
+  const esRef = useRef<EventSource | null>(null);
   useEffect(() => {
-    unsubRef.current?.();
-    unsubRef.current = undefined;
+    esRef.current?.close();
+    esRef.current = null;
     if (!openId) return;
-    unsubRef.current = subscribeToTicket(openId, (msg) => {
-      setDetail((prev) => {
-        if (!prev) return prev;
-        const exists = prev.messages.some((m) => m.id === msg.id);
-        if (exists) return prev;
-        return { ...prev, messages: [...prev.messages, { ...msg, isInternal: false }] };
-      });
-    });
-    return () => { unsubRef.current?.(); };
+    const token = typeof window !== "undefined" ? localStorage.getItem("fs_token") : null;
+    if (!token) return;
+    const base = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/+$/, "") || "http://localhost:4000/api";
+    const es = new EventSource(`${base}/support/tickets/${openId}/stream?token=${token}`);
+    es.onmessage = (e) => {
+      try {
+        const msg = JSON.parse(e.data);
+        setDetail((prev) => {
+          if (!prev) return prev;
+          if (prev.messages.some((m) => m.id === msg.id)) return prev;
+          return { ...prev, messages: [...prev.messages, { ...msg, isInternal: false }] };
+        });
+      } catch {}
+    };
+    esRef.current = es;
+    return () => { es.close(); };
   }, [openId]);
+
+  // Auto-scroll to bottom on new messages
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [detail?.messages?.length]);
 
   if (!isEnabled("SUPPORT_ENABLED")) {
     return <FeatureDisabledPage name="Support" />;
@@ -244,14 +256,14 @@ export default function SupportPage() {
         </div>
       )}
 
-      {/* Ticket Detail Full Screen Modal */}
+      {/* Ticket Detail Full Screen Page */}
       {openId && (
         <div className="fixed inset-0 z-50 flex flex-col bg-[#0B0B14]">
           {/* Detail Header */}
-          <div className="px-4 py-3 border-b border-white/5 flex items-center gap-3 bg-[#111126]/95 backdrop-blur-md sticky top-0 z-10 pt-[calc(env(safe-area-inset-top,0px)+12px)]">
+          <div className="px-3 sm:px-6 py-3 border-b border-white/5 flex items-center gap-3 bg-[#111126]/95 backdrop-blur-md sticky top-0 z-10 pt-[calc(env(safe-area-inset-top,0px)+12px)]">
             <button
               onClick={() => { setOpenId(null); setDetail(null); }}
-              className="p-1 hover:bg-white/5 rounded-lg text-white/70 hover:text-white transition-colors"
+              className="p-1.5 hover:bg-white/5 rounded-lg text-white/70 hover:text-white transition-colors"
             >
               <ArrowLeft size={20} />
             </button>
@@ -274,72 +286,78 @@ export default function SupportPage() {
             )}
           </div>
 
-          {/* Messages Grid */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3.5 bg-gradient-to-b from-[#0B0B14] to-[#121226]">
-            {detailLoading ? (
-              <div className="py-20 text-center space-y-3">
-                <div className="fs-skeleton w-32 h-4 mx-auto rounded-full" />
-                <div className="fs-skeleton w-44 h-8 mx-auto rounded-full" />
-              </div>
-            ) : (
-              detail?.messages.map((m) => {
-                const mine = m.senderId === user.id;
-                const isBot = m.senderRole === "BOT";
-                const isAdmin = m.senderRole === "ADMIN" || m.senderRole === "SUPER_ADMIN";
-                return (
-                  <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
-                    <div
-                      className={`max-w-[85%] px-4 py-3 rounded-2xl ${
-                        mine
-                          ? "bg-[#E53935]/15 border border-[#E53935]/25 text-white rounded-br-none shadow-[0_4px_16px_rgba(229,57,53,0.1)]"
-                          : isBot
-                            ? "bg-[#16162a] border border-white/5 text-white/90 rounded-bl-none"
-                            : isAdmin
-                              ? "bg-[#1e1e38] border border-white/10 text-white rounded-bl-none shadow-[0_4px_16px_rgba(255,255,255,0.05)]"
-                              : "bg-[#16162a] border border-white/5 text-white rounded-bl-none"
-                      }`}
-                    >
-                      <div className="flex justify-between items-baseline gap-4 mb-1">
-                        <span className={`text-[9px] font-bold ${mine ? "text-[#E53935]" : isBot ? "text-white/40" : "text-emerald-400"}`}>
-                          {isBot ? "System Assistant" : mine ? "You" : "Support Agent"}
-                        </span>
-                        <span className="text-[8px] text-white/30 font-medium">
-                          {new Date(m.createdAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
-                        </span>
+          {/* Messages Area - centered container for desktop */}
+          <div className="flex-1 overflow-y-auto bg-gradient-to-b from-[#0B0B14] to-[#121226]">
+            <div className="mx-auto w-full max-w-2xl px-3 sm:px-6 py-4 space-y-3">
+              {detailLoading ? (
+                <div className="py-20 text-center space-y-3">
+                  <div className="fs-skeleton w-32 h-4 mx-auto rounded-full" />
+                  <div className="fs-skeleton w-44 h-8 mx-auto rounded-full" />
+                </div>
+              ) : (
+                detail?.messages.map((m) => {
+                  const mine = m.senderId === user.id;
+                  const isBot = m.senderRole === "BOT";
+                  const isAdmin = m.senderRole === "ADMIN" || m.senderRole === "SUPER_ADMIN";
+                  return (
+                    <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+                      <div
+                        className={`max-w-[80%] sm:max-w-[70%] px-3 sm:px-4 py-2.5 sm:py-3 rounded-2xl ${
+                          mine
+                            ? "bg-[#E53935]/15 border border-[#E53935]/25 text-white rounded-br-none shadow-[0_4px_16px_rgba(229,57,53,0.1)]"
+                            : isBot
+                              ? "bg-[#16162a] border border-white/5 text-white/90 rounded-bl-none"
+                              : isAdmin
+                                ? "bg-[#1e1e38] border border-white/10 text-white rounded-bl-none shadow-[0_4px_16px_rgba(255,255,255,0.05)]"
+                                : "bg-[#16162a] border border-white/5 text-white rounded-bl-none"
+                        }`}
+                      >
+                        <div className="flex justify-between items-baseline gap-3 mb-1">
+                          <span className={`text-[9px] font-bold ${mine ? "text-[#E53935]" : isBot ? "text-white/40" : "text-emerald-400"}`}>
+                            {isBot ? "System Assistant" : mine ? "You" : "Support Agent"}
+                          </span>
+                          <span className="text-[8px] text-white/30 font-medium whitespace-nowrap">
+                            {new Date(m.createdAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                        </div>
+                        <p className="text-xs sm:text-sm text-white/90 leading-relaxed whitespace-pre-wrap break-words">{m.message}</p>
                       </div>
-                      <p className="text-xs text-white/90 leading-relaxed whitespace-pre-wrap">{m.message}</p>
                     </div>
-                  </div>
-                );
-              })
-            )}
+                  );
+                })
+              )}
+              <div ref={messagesEndRef} />
+            </div>
           </div>
 
-          {/* Reply Box input */}
+          {/* Reply Input - fixed bottom, centered */}
           {detail && detail.status !== "CLOSED" && (
-            <div className="p-4 border-t border-white/5 bg-[#111126] pb-[calc(env(safe-area-inset-bottom,0px)+12px)]">
-              <form
-                onSubmit={(e) => { e.preventDefault(); sendReplyFn(); }}
-                className="flex gap-2"
-              >
-                <input
-                  className="input flex-1 h-11"
-                  placeholder="Type a message..."
-                  value={reply}
-                  onChange={(e) => setReply(e.target.value)}
-                />
-                <button
-                  type="submit"
-                  className="fs-btn fs-btn-primary rounded-xl w-11 h-11 p-0 shrink-0"
-                  disabled={sendingReply || !reply.trim()}
+            <div className="border-t border-white/5 bg-[#111126] pb-[calc(env(safe-area-inset-bottom,0px)+8px)]">
+              <div className="mx-auto w-full max-w-2xl px-3 sm:px-6 py-3">
+                <form
+                  onSubmit={(e) => { e.preventDefault(); sendReplyFn(); }}
+                  className="flex gap-2"
                 >
-                  {sendingReply ? (
-                    <span className="animate-pulse font-bold">...</span>
-                  ) : (
-                    <Send size={15} />
-                  )}
-                </button>
-              </form>
+                  <input
+                    className="input flex-1 h-10 sm:h-11 text-sm"
+                    placeholder="Type a message..."
+                    value={reply}
+                    onChange={(e) => setReply(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && reply.trim()) { e.preventDefault(); sendReplyFn(); } }}
+                  />
+                  <button
+                    type="submit"
+                    className="fs-btn fs-btn-primary rounded-xl w-10 h-10 sm:w-11 sm:h-11 p-0 shrink-0"
+                    disabled={sendingReply || !reply.trim()}
+                  >
+                    {sendingReply ? (
+                      <span className="animate-pulse font-bold">...</span>
+                    ) : (
+                      <Send size={15} />
+                    )}
+                  </button>
+                </form>
+              </div>
             </div>
           )}
         </div>

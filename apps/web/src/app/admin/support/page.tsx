@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { Gavel, Send, X, ShieldAlert } from "lucide-react";
 import { ButtonLoading, CardSkeleton, TableLoading } from "@/components/ui";
@@ -78,6 +78,30 @@ export default function AdminSupport() {
       setDetailLoading(false);
     }
   }
+
+  // SSE for real-time admin chat
+  const esRef = useRef<EventSource | null>(null);
+  useEffect(() => {
+    esRef.current?.close();
+    esRef.current = null;
+    if (!openId) return;
+    const token = typeof window !== "undefined" ? localStorage.getItem("fs_token") : null;
+    if (!token) return;
+    const base = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/+$/, "") || "http://localhost:4000/api";
+    const es = new EventSource(`${base}/admin/support/tickets/${openId}/stream?token=${token}`);
+    es.onmessage = (e) => {
+      try {
+        const msg = JSON.parse(e.data);
+        setDetail((prev: any) => {
+          if (!prev) return prev;
+          if (prev.messages.some((m: any) => m.id === msg.id)) return prev;
+          return { ...prev, messages: [...prev.messages, msg] };
+        });
+      } catch {}
+    };
+    esRef.current = es;
+    return () => { es.close(); };
+  }, [openId]);
   async function openDispute(id: string) {
     setOpenDisputeId(id);
     setOpenId(null);

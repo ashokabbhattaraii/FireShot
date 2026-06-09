@@ -7,19 +7,32 @@ import {
   Put,
   Query,
   Req,
+  Sse,
+  UnauthorizedException,
   UseGuards,
 } from "@nestjs/common";
+import { Observable, map } from "rxjs";
+import { JwtService } from "@nestjs/jwt";
 import { JwtAuthGuard } from "../../common/guards/jwt.guard";
 import { PermissionsGuard, RequirePermission } from "../../common/guards/permissions.guard";
 import { FeatureFlagGuard, UseFeatureFlag } from "../../common/guards/feature-flag.guard";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { SupportService } from "./support.service";
+import { SupportSseService } from "./support-sse.service";
+import { jwtSecret } from "../auth/jwt-secret";
 import { TicketCategory, TicketPriority, TicketStatus } from "@fireslot/db";
 
 @UseGuards(JwtAuthGuard)
 @Controller("support/tickets")
 export class SupportPlayerController {
-  constructor(private svc: SupportService) {}
+  constructor(private svc: SupportService, private sse: SupportSseService, private jwt: JwtService) {}
+
+  @Sse(":id/stream")
+  stream(@Param("id") id: string, @Query("token") token: string): Observable<MessageEvent> {
+    if (!token) throw new UnauthorizedException();
+    try { this.jwt.verify(token, { secret: jwtSecret() }); } catch { throw new UnauthorizedException(); }
+    return this.sse.stream(id).pipe(map((data) => ({ data } as MessageEvent)));
+  }
 
   @UseGuards(FeatureFlagGuard)
   @UseFeatureFlag("SUPPORT_ENABLED")
@@ -61,7 +74,14 @@ export class SupportPlayerController {
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller("admin/support")
 export class SupportAdminController {
-  constructor(private svc: SupportService) {}
+  constructor(private svc: SupportService, private sse: SupportSseService, private jwt: JwtService) {}
+
+  @Sse("tickets/:id/stream")
+  stream(@Param("id") id: string, @Query("token") token: string): Observable<MessageEvent> {
+    if (!token) throw new UnauthorizedException();
+    try { this.jwt.verify(token, { secret: jwtSecret() }); } catch { throw new UnauthorizedException(); }
+    return this.sse.stream(id).pipe(map((data) => ({ data } as MessageEvent)));
+  }
 
   @RequirePermission("users", "read")
   @Get("stats")

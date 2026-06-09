@@ -8,7 +8,7 @@ import {
 import { PrismaClient, TicketCategory, TicketPriority, TicketStatus } from "@fireslot/db";
 import { PRISMA } from "../../prisma/prisma.module";
 import { AdminActionLogService } from "../admin/admin-action-log.service";
-import { RealtimeService } from "../../common/realtime/realtime.service";
+import { SupportSseService } from "./support-sse.service";
 
 const AUTO_REPLY: Record<string, string> = {
   PAYMENT_ISSUE: "Your payment is being reviewed. Usually approved within 2 hours.",
@@ -22,7 +22,7 @@ export class SupportService {
   constructor(
     @Inject(PRISMA) private prisma: PrismaClient,
     private logs: AdminActionLogService,
-    private realtime: RealtimeService,
+    private sse: SupportSseService,
   ) {}
 
   async createTicket(
@@ -155,7 +155,7 @@ export class SupportService {
     });
 
     if (!isInternal) {
-      this.realtime.emitToTicket(ticketId, "ticket_message", { id: msg.id, ticketId, senderId, senderRole, message, createdAt: msg.createdAt.toISOString() });
+      this.sse.emit({ id: msg.id, ticketId, senderId, senderRole, message, createdAt: msg.createdAt.toISOString() });
     }
 
     let nextStatus: TicketStatus = ticket.status;

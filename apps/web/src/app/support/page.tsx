@@ -63,18 +63,6 @@ export default function SupportPage() {
   }
   useEffect(() => { if (user) load().catch(() => {}); }, [user]);
 
-  if (!isEnabled("SUPPORT_ENABLED")) {
-    return <FeatureDisabledPage name="Support" />;
-  }
-
-  async function loadDetail(id: string) {
-    setOpenId(id);
-    setDetail(null);
-    setDetailLoading(true);
-    try { setDetail(await api(`/support/tickets/${id}`)); }
-    finally { setDetailLoading(false); }
-  }
-
   // Subscribe to realtime messages for the open ticket
   const unsubRef = useRef<() => void>();
   useEffect(() => {
@@ -91,6 +79,18 @@ export default function SupportPage() {
     });
     return () => { unsubRef.current?.(); };
   }, [openId]);
+
+  if (!isEnabled("SUPPORT_ENABLED")) {
+    return <FeatureDisabledPage name="Support" />;
+  }
+
+  async function loadDetail(id: string) {
+    setOpenId(id);
+    setDetail(null);
+    setDetailLoading(true);
+    try { setDetail(await api(`/support/tickets/${id}`)); }
+    finally { setDetailLoading(false); }
+  }
 
   async function createTicket() {
     if (!draft.subject || !draft.message) return;
